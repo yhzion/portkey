@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.3.7] - 2026-06-08
+
+### Fixed
+- correct palette for WCAG 2.1 AA text readability
+
+
 ## [0.3.6] - 2026-06-08
 
 
