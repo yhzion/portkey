@@ -11,9 +11,13 @@ builds:
     goos:
       - darwin
       - linux
+      - android
     goarch:
       - amd64
       - arm64
+    ignore:
+      - goos: android
+        goarch: amd64
     flags:
       - -buildmode=pie
 
