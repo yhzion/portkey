@@ -28,7 +28,7 @@ func newBaseForm() *hostForm {
 
 func newTestModel(hosts ...config.Host) *model {
 	cfg := &config.Config{Hosts: hosts}
-	return InitialModel(cfg).(*model)
+	return InitialModel(cfg, "v0.1.0", nil).(*model)
 }
 
 func TestHostForm_ToHost_DefaultPort(t *testing.T) {
@@ -101,7 +101,7 @@ func TestHostForm_ToHost_DisplayNameSet(t *testing.T) {
 
 func TestInitialModel_SetsDefaults(t *testing.T) {
 	cfg := &config.Config{Hosts: []config.Host{}}
-	m := InitialModel(cfg).(*model)
+	m := InitialModel(cfg, "v0.1.0", nil).(*model)
 
 	if m.screen != screenHostList {
 		t.Errorf("screen = %d, want screenHostList", m.screen)
@@ -116,7 +116,7 @@ func TestInitialModel_SetsDefaults(t *testing.T) {
 
 func TestInitialModel_WithExistingHosts(t *testing.T) {
 	cfg := &config.Config{Hosts: []config.Host{testHostDev, testHostB}}
-	m := InitialModel(cfg).(*model)
+	m := InitialModel(cfg, "v0.1.0", nil).(*model)
 	if len(m.config.Hosts) != 2 {
 		t.Errorf("len(Hosts) = %d, want 2", len(m.config.Hosts))
 	}

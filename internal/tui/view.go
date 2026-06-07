@@ -18,6 +18,8 @@ func (m *model) View() string {
 		return m.renderFormScreen("Edit Host")
 	case screenDeleteConfirm:
 		return m.renderDeleteConfirm()
+	case screenUpdateConfirm:
+		return m.renderUpdateConfirm()
 	case screenError:
 		return m.renderError()
 	}
@@ -28,6 +30,10 @@ func (m *model) renderHostList() string {
 	var b strings.Builder
 
 	b.WriteString(titleStyle.Render("Portkey"))
+	if m.updateTag != "" {
+		b.WriteString(" ")
+		b.WriteString(dimStyle.Render("⬆ Update available: " + m.updateTag))
+	}
 	b.WriteString("\n\n")
 
 	if len(m.config.Hosts) == 0 {
@@ -47,7 +53,9 @@ func (m *model) renderHostList() string {
 
 	b.WriteString("\n")
 	b.WriteString(
-		helpStyle.Render("↑/↓ move · enter/space select · 1-9 quick select · a add · e edit · d delete · q quit"),
+		helpStyle.Render(
+			"↑/↓ move · enter/space select · 1-9 quick select · a add · e edit · d delete · u update · q quit",
+		),
 	)
 
 	return b.String()
@@ -99,6 +107,15 @@ func (m *model) renderDeleteConfirm() string {
 	var b strings.Builder
 	b.WriteString("\n")
 	b.WriteString(errorStyle.Render(fmt.Sprintf("Delete \"%s\"?", host.DisplayName)))
+	b.WriteString("\n\n")
+	b.WriteString(dimStyle.Render("[y] yes / [n] no"))
+	return b.String()
+}
+
+func (m *model) renderUpdateConfirm() string {
+	var b strings.Builder
+	b.WriteString("\n")
+	b.WriteString(normalStyle.Render(fmt.Sprintf("Update portkey %s → %s?", m.Version, m.updateTag)))
 	b.WriteString("\n\n")
 	b.WriteString(dimStyle.Render("[y] yes / [n] no"))
 	return b.String()

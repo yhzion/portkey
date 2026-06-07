@@ -37,6 +37,24 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
+	case updateAvailableMsg:
+		m.updateTag = msg.Tag
+		m.latestRelease = msg.Rel
+		return m, nil
+
+	case updateCheckFailedMsg:
+		return m, nil
+
+	case updateDoneMsg:
+		if msg.err != nil {
+			m.errMsg = fmt.Sprintf("Update failed: %s", msg.err.Error())
+			m.screen = screenError
+		} else {
+			m.errMsg = "Update successful. Please restart portkey."
+			m.screen = screenError
+		}
+		return m, nil
+
 	case errMsg:
 		m.errMsg = msg.Error()
 		m.screen = screenError
@@ -57,6 +75,8 @@ func (m *model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleFormKey(msg)
 	case screenDeleteConfirm:
 		return m.handleDeleteConfirmKey(msg)
+	case screenUpdateConfirm:
+		return m.handleUpdateConfirmKey(msg)
 	case screenError:
 		return m.handleErrorKey(msg)
 	}
@@ -77,6 +97,11 @@ func (m *model) handleHostListKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 	case key.Matches(msg, m.keys.Quit):
 		return m, tea.Quit
+	case msg.String() == "u":
+		if m.latestRelease != nil {
+			m.screen = screenUpdateConfirm
+			return m, nil
+		}
 	case msg.String() == "a":
 		return m, m.showAddScreen()
 	case key.Matches(msg, m.keys.Edit):
@@ -144,5 +169,24 @@ func (m *model) handleDeleteConfirmKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 func (m *model) handleErrorKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	m.screen = screenHostList
+	return m, nil
+}
+
+func (m *model) handleUpdateConfirmKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if key.Matches(msg, m.keys.Escape) {
+		m.screen = screenHostList
+		return m, nil
+	}
+
+	switch strings.ToLower(msg.String()) {
+	case "y":
+		m.screen = screenHostList
+		return m, func() tea.Msg {
+			return updateDoneMsg{err: nil}
+		}
+	case "n":
+		m.screen = screenHostList
+		return m, nil
+	}
 	return m, nil
 }

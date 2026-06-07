@@ -7,6 +7,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
 	"github.com/yhzion/portkey/internal/config"
+	"github.com/yhzion/portkey/internal/updater"
 )
 
 type screen int
@@ -16,6 +17,7 @@ const (
 	screenAddHost
 	screenEditHost
 	screenDeleteConfirm
+	screenUpdateConfirm
 	screenError
 )
 
@@ -49,17 +51,32 @@ func (e errMsg) Error() string { return e.err.Error() }
 
 type sshDoneMsg struct{ err error }
 
+type updateAvailableMsg struct {
+	Tag string
+	Rel *updater.Release
+}
+
+type updateCheckFailedMsg struct{}
+
+type updateDoneMsg struct {
+	err error
+}
+
 type model struct {
-	screen    screen
-	config    *config.Config
-	selected  int
-	form      *huh.Form
-	hostForm  *hostForm
-	editIndex int
-	errMsg    string
-	keys      keyMap
-	width     int
-	height    int
+	screen        screen
+	config        *config.Config
+	selected      int
+	form          *huh.Form
+	hostForm      *hostForm
+	editIndex     int
+	errMsg        string
+	keys          keyMap
+	width         int
+	height        int
+	updateTag     string
+	latestRelease *updater.Release
+	Version       string
+	Updater       *updater.Client
 }
 
 type keyMap struct {
@@ -115,18 +132,36 @@ func newKeyMap() keyMap {
 	}
 }
 
-func InitialModel(cfg *config.Config) tea.Model {
+func InitialModel(cfg *config.Config, version string, upd *updater.Client) tea.Model {
 	m := &model{
 		screen:   screenHostList,
 		config:   cfg,
 		selected: 0,
 		keys:     newKeyMap(),
+		Version:  version,
+		Updater:  upd,
 	}
 	return m
 }
 
 func (m *model) Init() tea.Cmd {
+	if m.Updater != nil && m.Version != "dev" {
+		return m.checkUpdate()
+	}
 	return nil
+}
+
+func (m *model) checkUpdate() tea.Cmd {
+	return func() tea.Msg {
+		rel, err := m.Updater.CheckLatest()
+		if err != nil {
+			return updateCheckFailedMsg{}
+		}
+		if updater.IsNewer(m.Version, rel.Tag) {
+			return updateAvailableMsg{Tag: rel.Tag, Rel: rel}
+		}
+		return nil
+	}
 }
 
 func buildHostForm(hf *hostForm) *huh.Form {

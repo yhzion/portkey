@@ -3,6 +3,8 @@ package tui
 import (
 	"strings"
 	"testing"
+
+	"github.com/yhzion/portkey/internal/updater"
 )
 
 // view tests lock rendering behavior so style refactors don't change output structure.
@@ -123,5 +125,45 @@ func TestView_DefaultPortNotShown(t *testing.T) {
 
 	if strings.Contains(view, ":22") {
 		t.Error("default port 22 should not appear in connection info")
+	}
+}
+
+func TestView_UpdateNotification(t *testing.T) {
+	m := newTestModel(testHostDev)
+	m.updateTag = "v0.2.0"
+	view := m.View()
+
+	if !strings.Contains(view, "Update available") {
+		t.Error("should show update notification when updateTag is set")
+	}
+	if !strings.Contains(view, "v0.2.0") {
+		t.Error("should show version in update notification")
+	}
+}
+
+func TestView_UpdateConfirm(t *testing.T) {
+	m := newTestModel(testHostDev)
+	m.updateTag = "v0.2.0"
+	m.latestRelease = &updater.Release{Tag: "v0.2.0"}
+	m.screen = screenUpdateConfirm
+	view := m.View()
+
+	if !strings.Contains(view, "Update") {
+		t.Error("update confirm should show Update")
+	}
+	if !strings.Contains(view, "v0.2.0") {
+		t.Error("update confirm should show target version")
+	}
+	if !strings.Contains(view, "[y]") {
+		t.Error("update confirm should show y/n options")
+	}
+}
+
+func TestView_NoUpdateNotification(t *testing.T) {
+	m := newTestModel(testHostDev)
+	view := m.View()
+
+	if strings.Contains(view, "Update available") {
+		t.Error("should not show update notification when no update")
 	}
 }
