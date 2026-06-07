@@ -132,6 +132,11 @@ verify_checksum() {
   ok "Checksum verified"
 }
 
+# ── Detect Termux ─────────────────────────────────────────────────────────
+is_termux() {
+  [ -n "${TERMUX_VERSION:-}" ] || [ -x "${PREFIX:-}/bin/termux-setup-storage" ] 2>/dev/null
+}
+
 # ── Resolve install directory ─────────────────────────────────────────────
 resolve_bindir() {
   # 1. User override
@@ -140,16 +145,42 @@ resolve_bindir() {
     return
   fi
 
-  # 2. /usr/local/bin if writable (no sudo needed)
+  # 2. Termux: use $PREFIX/bin (already in PATH)
+  if is_termux && [ -w "${PREFIX}/bin" ] 2>/dev/null; then
+    echo "${PREFIX}/bin"
+    return
+  fi
+
+  # 3. /usr/local/bin if writable (no sudo needed)
   if [ -w "/usr/local/bin" ] 2>/dev/null; then
     echo "/usr/local/bin"
     return
   fi
 
-  # 3. ~/.local/bin (create if missing)
+  # 4. ~/.local/bin (create if missing)
   local bindir="${HOME}/.local/bin"
   mkdir -p "$bindir"
   echo "$bindir"
+}
+
+# ── Detect shell rc file ──────────────────────────────────────────────────
+detect_rcfile() {
+  local shell_name
+  shell_name="$(basename "${SHELL:-}")"
+
+  case "$shell_name" in
+    zsh)  echo "${HOME}/.zshrc" ;;
+    bash)
+      if [ -f "${HOME}/.bashrc" ]; then
+        echo "${HOME}/.bashrc"
+      elif [ "$(uname -s)" = "Darwin" ] && [ -f "${HOME}/.bash_profile" ]; then
+        echo "${HOME}/.bash_profile"
+      else
+        echo "${HOME}/.bashrc"
+      fi
+      ;;
+    *)    echo "${HOME}/.profile" ;;
+  esac
 }
 
 # ── Add directory to PATH in shell rc ─────────────────────────────────────
@@ -158,31 +189,19 @@ ensure_in_path() {
 
   # Check if already in PATH
   case ":${PATH}:" in
-    *":${bindir}:"*) return 0 ;;
+    *":${bindir}:"*) NEED_SOURCE=false ;;
+    *) NEED_SOURCE=true ;;
   esac
 
   # Detect shell rc file
-  local rcfile=""
-  local shell_name
-  shell_name="$(basename "${SHELL:-}")"
+  RCFILE="$(detect_rcfile)"
 
-  case "$shell_name" in
-    zsh)  rcfile="${HOME}/.zshrc" ;;
-    bash)
-      # Prefer .bashrc for interactive, .bash_profile on macOS
-      if [ -f "${HOME}/.bashrc" ]; then
-        rcfile="${HOME}/.bashrc"
-      elif [ "$(uname -s)" = "Darwin" ] && [ -f "${HOME}/.bash_profile" ]; then
-        rcfile="${HOME}/.bash_profile"
-      else
-        rcfile="${HOME}/.bashrc"
-      fi
-      ;;
-    *)    rcfile="${HOME}/.profile" ;;
-  esac
+  # If already in PATH, nothing to do
+  [ "$NEED_SOURCE" = "false" ] && return 0
 
   # Check if it's already in the rc file
-  if [ -f "$rcfile" ] && grep -qF "$bindir" "$rcfile" 2>/dev/null; then
+  if [ -f "$RCFILE" ] && grep -qF "$bindir" "$RCFILE" 2>/dev/null; then
+    # Already in rc but not in current session — still need to source
     return 0
   fi
 
@@ -191,16 +210,7 @@ ensure_in_path() {
     echo ""
     echo "# Added by portkey installer"
     echo "export PATH=\"${bindir}:\$PATH\""
-  } >> "$rcfile"
-
-  warn "${bindir} is not in your PATH."
-  echo ""
-  echo "  Added this line to ${rcfile}:"
-  echo "    export PATH=\"${bindir}:\$PATH\""
-  echo ""
-  echo "  Run this to update your current session:"
-  echo "    source ${rcfile}"
-  echo ""
+  } >> "$RCFILE"
 }
 
 # ── Main ──────────────────────────────────────────────────────────────────
@@ -269,7 +279,14 @@ main() {
   # Done
   printf "\n"
   ok "Portkey ${version} installed successfully!"
-  printf "\n  ${BOLD}portkey${RESET} — pick a host and jump in.\n\n"
+  printf "\n  ${BOLD}portkey${RESET} — pick a host and jump in.\n"
+
+  # If bindir is not in PATH, print a prominent notice
+  if [ "${NEED_SOURCE:-false}" = "true" ]; then
+    printf "\n  ${YELLOW}${BOLD}⚠ Action required:${RESET} ${bindir} is not in your PATH.\n"
+    printf "  Run this command to use portkey right away:\n\n"
+    printf "    ${BOLD}source %s${RESET}\n\n" "${RCFILE}"
+  fi
 }
 
 main "$@"
