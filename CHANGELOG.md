@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.3.10] - 2026-06-08
+
+### Added
+- add update subcommand for self-update
+
+
 ## [0.3.9] - 2026-06-08
 
 
