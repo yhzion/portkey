@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.3.3] - 2026-06-07
+
+### Fixed
+- use gh auth token when GITHUB_TOKEN is not set
+
+
 ## [0.3.2] - 2026-06-07
 
 
