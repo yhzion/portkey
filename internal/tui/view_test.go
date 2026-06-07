@@ -133,7 +133,7 @@ func TestView_UpdateNotification(t *testing.T) {
 	m.updateTag = "v0.2.0"
 	view := m.View()
 
-	if !strings.Contains(view, "Update available") {
+	if !strings.Contains(view, "available") {
 		t.Error("should show update notification when updateTag is set")
 	}
 	if !strings.Contains(view, "v0.2.0") {
@@ -163,7 +163,7 @@ func TestView_NoUpdateNotification(t *testing.T) {
 	m := newTestModel(testHostDev)
 	view := m.View()
 
-	if strings.Contains(view, "Update available") {
+	if strings.Contains(view, "available") {
 		t.Error("should not show update notification when no update")
 	}
 }

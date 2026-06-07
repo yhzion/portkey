@@ -32,7 +32,7 @@ func (m *model) renderHostList() string {
 	b.WriteString(titleStyle.Render("Portkey"))
 	if m.updateTag != "" {
 		b.WriteString(" ")
-		b.WriteString(dimStyle.Render("⬆ Update available: " + m.updateTag))
+		b.WriteString(accentStyle.Render("✨ " + m.updateTag + " available — press u to update"))
 	}
 	b.WriteString("\n\n")
 
@@ -115,7 +115,7 @@ func (m *model) renderDeleteConfirm() string {
 func (m *model) renderUpdateConfirm() string {
 	var b strings.Builder
 	b.WriteString("\n")
-	b.WriteString(normalStyle.Render(fmt.Sprintf("Update portkey %s → %s?", m.Version, m.updateTag)))
+	b.WriteString(accentStyle.Render(fmt.Sprintf("✨ New version (%s) detected. Update now?", m.updateTag)))
 	b.WriteString("\n\n")
 	b.WriteString(dimStyle.Render("[y] yes / [n] no"))
 	return b.String()

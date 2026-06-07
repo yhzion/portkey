@@ -11,6 +11,7 @@ const (
 	colorPositive = "#4ADE80" // green — add, success
 	colorBright   = "#E2E2E2" // readable text
 	colorDim      = "#6B7280" // help, secondary info
+	colorAccent   = "#FBBF24" // gold — update notifications
 )
 
 var (
@@ -49,4 +50,8 @@ var (
 
 	errorStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color(colorDanger))
+
+	accentStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color(colorAccent)).
+			Bold(true)
 )
