@@ -15,10 +15,6 @@ func sshRun(host config.Host) error {
 	return ssh.Run(host)
 }
 
-func matchesKey(k tea.KeyMsg, b key.Binding) bool {
-	return key.Matches(k, b)
-}
-
 func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.WindowSizeMsg:
@@ -71,27 +67,27 @@ func (m *model) handleHostListKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	totalItems := len(m.config.Hosts) + 1 // hosts + "Add new host"
 
 	switch {
-	case matchesKey(msg, m.keys.Up):
+	case key.Matches(msg, m.keys.Up):
 		if m.selected > 0 {
 			m.selected--
 		}
-	case matchesKey(msg, m.keys.Down):
+	case key.Matches(msg, m.keys.Down):
 		if m.selected < totalItems-1 {
 			m.selected++
 		}
-	case matchesKey(msg, m.keys.Quit):
+	case key.Matches(msg, m.keys.Quit):
 		return m, tea.Quit
 	case msg.String() == "a":
 		return m, m.showAddScreen()
-	case matchesKey(msg, m.keys.Edit):
+	case key.Matches(msg, m.keys.Edit):
 		if m.selected < len(m.config.Hosts) {
 			return m, m.showEditScreen(m.selected)
 		}
-	case matchesKey(msg, m.keys.Delete):
+	case key.Matches(msg, m.keys.Delete):
 		if m.selected < len(m.config.Hosts) {
 			m.showDeleteConfirm(m.selected)
 		}
-	case matchesKey(msg, m.keys.Enter), matchesKey(msg, m.keys.Space):
+	case key.Matches(msg, m.keys.Enter), key.Matches(msg, m.keys.Space):
 		return m.handleSelect()
 	default:
 		if len(msg.String()) == 1 && msg.String() >= "1" && msg.String() <= "9" {
@@ -115,7 +111,7 @@ func (m *model) handleSelect() (tea.Model, tea.Cmd) {
 }
 
 func (m *model) handleFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	if matchesKey(msg, m.keys.Escape) {
+	if key.Matches(msg, m.keys.Escape) {
 		m.screen = screenHostList
 		return m, nil
 	}
@@ -131,7 +127,7 @@ func (m *model) handleFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m *model) handleDeleteConfirmKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	if matchesKey(msg, m.keys.Escape) {
+	if key.Matches(msg, m.keys.Escape) {
 		m.screen = screenHostList
 		return m, nil
 	}
@@ -149,11 +145,4 @@ func (m *model) handleDeleteConfirmKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 func (m *model) handleErrorKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	m.screen = screenHostList
 	return m, nil
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
 }

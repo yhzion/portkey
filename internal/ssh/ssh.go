@@ -2,7 +2,6 @@ package ssh
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"os/exec"
 
@@ -20,18 +19,6 @@ func BuildArgs(host config.Host) []string {
 	target := fmt.Sprintf("%s@%s", host.Username, host.Host)
 	args = append(args, target)
 	return args
-}
-
-// DefaultRunner executes ssh commands via exec.Command.
-type DefaultRunner struct{}
-
-// Run executes a command with the given arguments and I/O streams.
-func (r *DefaultRunner) Run(name string, args []string, stdin io.Reader, stdout io.Writer, stderr io.Writer) error {
-	cmd := exec.Command(name, args...)
-	cmd.Stdin = stdin
-	cmd.Stdout = stdout
-	cmd.Stderr = stderr
-	return cmd.Run()
 }
 
 // Run executes ssh for the given host config.
