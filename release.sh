@@ -77,6 +77,10 @@ git commit -m "chore(release): prepare $NEXT"
 git tag "$NEXT"
 
 if command -v goreleaser &>/dev/null; then
+  if [ -z "${GITHUB_TOKEN:-}" ] && command -v gh &>/dev/null; then
+    GITHUB_TOKEN="$(gh auth token)"
+    export GITHUB_TOKEN
+  fi
   goreleaser release --clean
 else
   echo "goreleaser not found. Install: go install github.com/goreleaser/goreleaser/v2@latest"
