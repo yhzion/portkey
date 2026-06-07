@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.2.0] - 2026-06-07
+
+### Added
+- One-line install script (`install.sh`) with checksum verification
+- Auto-detects OS/arch, installs to `/usr/local/bin` or `~/.local/bin`
+- Auto-patches shell rc file (`.bashrc`/`.zshrc`/`.profile`) when `~/.local/bin` not in PATH
+- Install script uploaded as release asset via goreleaser
+
 ## [0.1.1] - 2026-06-07
 
 ### Added
