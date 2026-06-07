@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.3.1] - 2026-06-07
+
+### Fixed
+- detect Termux and install to $PREFIX/bin
+
+
 ## [0.3.0] - 2026-06-07
 
 ### Added
