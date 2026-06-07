@@ -22,10 +22,10 @@ const (
 )
 
 type hostForm struct {
-	DisplayName string
-	Username    string
-	Host        string
-	Port        string
+	Name     string
+	Username string
+	Host     string
+	Port     string
 }
 
 func (f *hostForm) toHost() config.Host {
@@ -33,15 +33,15 @@ func (f *hostForm) toHost() config.Host {
 	if f.Port != "" {
 		fmt.Sscanf(f.Port, "%d", &port)
 	}
-	displayName := f.DisplayName
-	if displayName == "" {
-		displayName = f.Username
+	name := f.Name
+	if name == "" {
+		name = f.Username
 	}
 	return config.Host{
-		DisplayName: displayName,
-		Username:    f.Username,
-		Host:        f.Host,
-		Port:        port,
+		Name:     name,
+		Username: f.Username,
+		Host:     f.Host,
+		Port:     port,
 	}
 }
 
@@ -77,6 +77,11 @@ type model struct {
 	latestRelease *updater.Release
 	Version       string
 	Updater       *updater.Client
+
+	// Search/filter state
+	searchActive bool
+	searchQuery  string
+	filtered     []MatchResult // fuzzy match results for current query
 }
 
 type keyMap struct {
@@ -89,6 +94,7 @@ type keyMap struct {
 	Edit   key.Binding
 	Delete key.Binding
 	Escape key.Binding
+	Search key.Binding
 }
 
 func newKeyMap() keyMap {
@@ -129,6 +135,10 @@ func newKeyMap() keyMap {
 			key.WithKeys("esc"),
 			key.WithHelp("esc", "cancel"),
 		),
+		Search: key.NewBinding(
+			key.WithKeys("/"),
+			key.WithHelp("/", "search"),
+		),
 	}
 }
 
@@ -168,9 +178,14 @@ func buildHostForm(hf *hostForm) *huh.Form {
 	return huh.NewForm(
 		huh.NewGroup(
 			huh.NewInput().
-				Title("Display Name").
-				Value(&hf.DisplayName).
-				Validate(func(s string) error { return nil }),
+				Title("Name").
+				Value(&hf.Name).
+				Validate(func(s string) error {
+					if err := config.ValidateName(s); err != nil {
+						return err
+					}
+					return nil
+				}),
 			huh.NewInput().
 				Title("Username").
 				Value(&hf.Username).
@@ -229,10 +244,10 @@ func (m *model) showEditScreen(index int) tea.Cmd {
 		portStr = "22"
 	}
 	m.hostForm = &hostForm{
-		DisplayName: h.DisplayName,
-		Username:    h.Username,
-		Host:        h.Host,
-		Port:        portStr,
+		Name:     h.Name,
+		Username: h.Username,
+		Host:     h.Host,
+		Port:     portStr,
 	}
 	m.form = buildHostForm(m.hostForm)
 	return m.form.Init()
@@ -282,4 +297,60 @@ func (m *model) connectHost(index int) tea.Cmd {
 		err := sshRun(m.config.Hosts[index])
 		return sshDoneMsg{err: err}
 	}
+}
+
+// visibleHosts returns the host indices to display.
+// When search is active, returns filtered results; otherwise all hosts.
+func (m *model) visibleHosts() []int {
+	if m.searchActive {
+		indices := make([]int, len(m.filtered))
+		for i, r := range m.filtered {
+			indices[i] = r.HostIndex
+		}
+		return indices
+	}
+	indices := make([]int, len(m.config.Hosts))
+	for i := range m.config.Hosts {
+		indices[i] = i
+	}
+	return indices
+}
+
+// totalItems returns the number of selectable items (hosts + "Add" item).
+func (m *model) totalItems() int {
+	return len(m.visibleHosts()) + 1
+}
+
+// selectedHostIndex returns the config.Hosts index of the currently selected item.
+// Returns -1 if the selection is on the "Add" item.
+func (m *model) selectedHostIndex() int {
+	visible := m.visibleHosts()
+	if m.selected >= len(visible) {
+		return -1 // "Add" item or out of range
+	}
+	return visible[m.selected]
+}
+
+// updateFilter runs fuzzy match and resets selection.
+func (m *model) updateFilter() {
+	m.filtered = FuzzyMatch(m.config.Hosts, m.searchQuery)
+	if m.selected >= len(m.filtered)+1 {
+		m.selected = max(0, len(m.filtered))
+	}
+}
+
+// activateSearch enters search mode.
+func (m *model) activateSearch() {
+	m.searchActive = true
+	m.searchQuery = ""
+	m.filtered = FuzzyMatch(m.config.Hosts, "")
+	m.selected = 0
+}
+
+// deactivateSearch exits search mode and restores full list.
+func (m *model) deactivateSearch() {
+	m.searchActive = false
+	m.searchQuery = ""
+	m.filtered = nil
+	m.selected = 0
 }

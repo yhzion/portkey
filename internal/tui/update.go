@@ -35,6 +35,7 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.screen = screenHostList
 		}
+		m.deactivateSearch()
 		return m, nil
 
 	case updateAvailableMsg:
@@ -84,7 +85,21 @@ func (m *model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m *model) handleHostListKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	totalItems := len(m.config.Hosts) + 1 // hosts + "Add new host"
+	// When search is active, handle search input first.
+	if m.searchActive {
+		return m.handleSearchKey(msg)
+	}
+
+	switch {
+	case key.Matches(msg, m.keys.Search):
+		m.activateSearch()
+		return m, nil
+	case msg.String() == "s":
+		m.activateSearch()
+		return m, nil
+	}
+
+	totalItems := m.totalItems()
 
 	switch {
 	case key.Matches(msg, m.keys.Up):
@@ -105,20 +120,21 @@ func (m *model) handleHostListKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case msg.String() == "a":
 		return m, m.showAddScreen()
 	case key.Matches(msg, m.keys.Edit):
-		if m.selected < len(m.config.Hosts) {
-			return m, m.showEditScreen(m.selected)
+		if idx := m.selectedHostIndex(); idx >= 0 {
+			return m, m.showEditScreen(idx)
 		}
 	case key.Matches(msg, m.keys.Delete):
-		if m.selected < len(m.config.Hosts) {
-			m.showDeleteConfirm(m.selected)
+		if idx := m.selectedHostIndex(); idx >= 0 {
+			m.showDeleteConfirm(idx)
 		}
 	case key.Matches(msg, m.keys.Enter), key.Matches(msg, m.keys.Space):
 		return m.handleSelect()
 	default:
 		if len(msg.String()) == 1 && msg.String() >= "1" && msg.String() <= "9" {
 			num := int(msg.String()[0] - '0')
-			if num <= len(m.config.Hosts) {
-				return m, m.connectHost(num - 1)
+			visible := m.visibleHosts()
+			if num <= len(visible) {
+				return m, m.connectHost(visible[num-1])
 			}
 		}
 	}
@@ -126,11 +142,63 @@ func (m *model) handleHostListKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m *model) handleSelect() (tea.Model, tea.Cmd) {
-	if m.selected == len(m.config.Hosts) {
+	if m.selected >= len(m.visibleHosts()) {
 		return m, m.showAddScreen()
 	}
-	if m.selected < len(m.config.Hosts) {
-		return m, m.connectHost(m.selected)
+	if idx := m.selectedHostIndex(); idx >= 0 {
+		return m, m.connectHost(idx)
+	}
+	return m, nil
+}
+
+func (m *model) handleSearchKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch {
+	case key.Matches(msg, m.keys.Escape):
+		m.deactivateSearch()
+		return m, nil
+	case msg.Type == tea.KeyBackspace:
+		if len(m.searchQuery) > 0 {
+			m.searchQuery = m.searchQuery[:len(m.searchQuery)-1]
+			m.updateFilter()
+		} else {
+			m.deactivateSearch()
+		}
+		return m, nil
+	case key.Matches(msg, m.keys.Up):
+		if m.selected > 0 {
+			m.selected--
+		}
+		return m, nil
+	case key.Matches(msg, m.keys.Down):
+		if m.selected < m.totalItems()-1 {
+			m.selected++
+		}
+		return m, nil
+	case key.Matches(msg, m.keys.Enter), key.Matches(msg, m.keys.Space):
+		// Select from filtered results.
+		result, cmd := m.handleSelect()
+		m.deactivateSearch()
+		return result, cmd
+	case msg.String() == "q":
+		// Allow quit from search.
+		return m, tea.Quit
+	default:
+		// Quick-connect numbers (1-9) on filtered results.
+		r := msg.String()
+		if len(r) == 1 && r >= "1" && r <= "9" {
+			visible := m.visibleHosts()
+			num := int(r[0] - '0')
+			if num <= len(visible) {
+				cmd := m.connectHost(visible[num-1])
+				m.deactivateSearch()
+				return m, cmd
+			}
+		}
+		// Printable character: append to search query.
+		if len(r) == 1 && r[0] >= 32 && r[0] < 127 {
+			m.searchQuery += r
+			m.updateFilter()
+		}
 	}
 	return m, nil
 }

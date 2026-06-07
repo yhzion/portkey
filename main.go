@@ -22,7 +22,7 @@ func main() {
 			fmt.Printf("portkey %s\n", version)
 			os.Exit(0)
 		case "--help", "-h":
-			fmt.Println("Portkey — pick a host and jump in.")
+			fmt.Println("Portkey - pick a host and jump in.")
 			fmt.Println()
 			fmt.Println("Usage:")
 			fmt.Println("  portkey          Start interactive SSH host picker")

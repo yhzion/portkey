@@ -15,11 +15,11 @@ const (
 )
 
 var (
-	testHostDev  = config.Host{DisplayName: "dev", Username: "u", Host: "h", Port: 22}
-	testHostA    = config.Host{DisplayName: "a", Username: "u", Host: "h1", Port: 22}
-	testHostB    = config.Host{DisplayName: "b", Username: "u", Host: "h2", Port: 22}
-	testHostC    = config.Host{DisplayName: "c", Username: "u", Host: "h3", Port: 22}
-	testHostPort = config.Host{DisplayName: "staging", Username: "u", Host: "h", Port: 2222}
+	testHostDev  = config.Host{Name: "dev", Username: "u", Host: "h", Port: 22}
+	testHostA    = config.Host{Name: "a", Username: "u", Host: "h1", Port: 22}
+	testHostB    = config.Host{Name: "b", Username: "u", Host: "h2", Port: 22}
+	testHostC    = config.Host{Name: "c", Username: "u", Host: "h3", Port: 22}
+	testHostPort = config.Host{Name: "staging", Username: "u", Host: "h", Port: 2222}
 )
 
 func newBaseForm() *hostForm {
@@ -83,19 +83,19 @@ func TestHostForm_ToHost_EmptyPortFallsBackTo22(t *testing.T) {
 	}
 }
 
-func TestHostForm_ToHost_DisplayNameFallback(t *testing.T) {
+func TestHostForm_ToHost_NameFallback(t *testing.T) {
 	h := newBaseForm().toHost()
-	if h.DisplayName != testUsername {
-		t.Errorf("DisplayName = %q, want %q (fallback to username)", h.DisplayName, testUsername)
+	if h.Name != testUsername {
+		t.Errorf("Name = %q, want %q (fallback to username)", h.Name, testUsername)
 	}
 }
 
-func TestHostForm_ToHost_DisplayNameSet(t *testing.T) {
+func TestHostForm_ToHost_NameSet(t *testing.T) {
 	f := newBaseForm()
-	f.DisplayName = "My Server"
+	f.Name = "my-server"
 	h := f.toHost()
-	if h.DisplayName != "My Server" {
-		t.Errorf("DisplayName = %q, want %q", h.DisplayName, "My Server")
+	if h.Name != "my-server" {
+		t.Errorf("Name = %q, want %q", h.Name, "my-server")
 	}
 }
 

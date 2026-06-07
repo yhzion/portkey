@@ -8,7 +8,7 @@ import (
 )
 
 func TestBuildArgsDefaultPort(t *testing.T) {
-	host := config.Host{DisplayName: "dev", Username: "youngho", Host: "192.168.0.10", Port: 22}
+	host := config.Host{Name: "dev", Username: "youngho", Host: "192.168.0.10", Port: 22}
 	args := ssh.BuildArgs(host)
 
 	if len(args) != 1 {
@@ -20,7 +20,7 @@ func TestBuildArgsDefaultPort(t *testing.T) {
 }
 
 func TestBuildArgsCustomPort(t *testing.T) {
-	host := config.Host{DisplayName: "staging", Username: "ubuntu", Host: "staging.example.com", Port: 2222}
+	host := config.Host{Name: "staging", Username: "ubuntu", Host: "staging.example.com", Port: 2222}
 	args := ssh.BuildArgs(host)
 
 	if len(args) != 3 {

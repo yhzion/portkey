@@ -36,40 +36,98 @@ func (m *model) renderHostList() string {
 	}
 	b.WriteString("\n\n")
 
+	// Search bar.
+	if m.searchActive {
+		b.WriteString(searchBarStyle.Render("/> " + m.searchQuery + "█"))
+		b.WriteString("\n\n")
+	}
+
+	// Use filtered hosts when search is active.
+	var visible []int
+	var matchMap map[int]*MatchResult // for highlight positions
+	if m.searchActive {
+		visible = make([]int, len(m.filtered))
+		matchMap = make(map[int]*MatchResult, len(m.filtered))
+		for i := range m.filtered {
+			visible[i] = m.filtered[i].HostIndex
+			matchMap[m.filtered[i].HostIndex] = &m.filtered[i]
+		}
+	} else {
+		visible = make([]int, len(m.config.Hosts))
+		for i := range m.config.Hosts {
+			visible[i] = i
+		}
+	}
+
 	if len(m.config.Hosts) == 0 {
 		b.WriteString(m.renderAddItem(true))
 		b.WriteString("\n")
 		b.WriteString(dimStyle.Render("No hosts registered yet."))
 		b.WriteString("\n")
-		b.WriteString(helpStyle.Render("↑/↓ move · enter select · a add · q quit"))
+		b.WriteString(helpStyle.Render("↑/↓ move · enter select · / search · a add · q quit"))
 		return b.String()
 	}
 
-	for i, host := range m.config.Hosts {
-		b.WriteString(m.renderHostItem(i, host, i == m.selected))
+	// Empty search results.
+	if m.searchActive && len(visible) == 0 {
+		b.WriteString(dimStyle.Render("No matches found."))
+		b.WriteString("\n\n")
+		b.WriteString(helpStyle.Render("esc clear search · backspace delete · q quit"))
+		return b.String()
 	}
 
-	b.WriteString(m.renderAddItem(m.selected == len(m.config.Hosts)))
+	for displayIdx, hostIdx := range visible {
+		host := m.config.Hosts[hostIdx]
+		selected := displayIdx == m.selected
+		var positions []int
+		if m.searchActive && matchMap != nil {
+			if mr, ok := matchMap[hostIdx]; ok {
+				positions = mr.Positions
+			}
+		}
+		b.WriteString(m.renderHostItem(displayIdx, host, selected, positions))
+	}
+
+	b.WriteString(m.renderAddItem(m.selected == len(visible)))
 
 	b.WriteString("\n")
-	b.WriteString(
-		helpStyle.Render(
-			"↑/↓ move · enter/space select · 1-9 quick select · a add · e edit · d delete · u update · q quit",
-		),
-	)
+	if m.searchActive {
+		b.WriteString(
+			helpStyle.Render(
+				"type to filter · ↑/↓ move · enter/space select · 1-9 quick · esc clear · q quit",
+			),
+		)
+	} else {
+		b.WriteString(
+			helpStyle.Render(
+				"↑/↓ move · enter/space select · 1-9 quick select · / search · a add · e edit · d delete · u update · q quit",
+			),
+		)
+	}
 
 	return b.String()
 }
 
-func (m *model) renderHostItem(index int, host config.Host, selected bool) string {
+func (m *model) renderHostItem(
+	index int,
+	host config.Host,
+	selected bool,
+	matchPositions []int,
+) string {
 	connInfo := fmt.Sprintf("%s@%s", host.Username, host.Host)
 	if host.Port != 22 {
 		connInfo = fmt.Sprintf("%s:%d", connInfo, host.Port)
 	}
 
-	line := fmt.Sprintf("%s %s %s",
+	nameStr := host.Name
+	if len(matchPositions) > 0 {
+		nameStr = highlightMatched(host.Name, matchPositions)
+	}
+
+	line := fmt.Sprintf(
+		"%s %s %s",
 		indexStyle.Render(fmt.Sprintf("%d.", index+1)),
-		nameStyle.Render(host.DisplayName),
+		nameStyle.Render(nameStr),
 		dimStyle.Render(connInfo),
 	)
 
@@ -77,6 +135,27 @@ func (m *model) renderHostItem(index int, host config.Host, selected bool) strin
 		return cursorStyle.Render("▸ ") + selectedStyle.Render(line) + "\n"
 	}
 	return "  " + normalStyle.Render(line) + "\n"
+}
+
+// highlightMatched renders a string with matched character positions highlighted.
+func highlightMatched(s string, positions []int) string {
+	runes := []rune(s)
+	posSet := make(map[int]bool, len(positions))
+	for _, p := range positions {
+		if p < len(runes) {
+			posSet[p] = true
+		}
+	}
+
+	var b strings.Builder
+	for i, r := range runes {
+		if posSet[i] {
+			b.WriteString(matchStyle.Render(string(r)))
+		} else {
+			b.WriteRune(r)
+		}
+	}
+	return b.String()
 }
 
 func (m *model) renderAddItem(selected bool) string {
@@ -106,7 +185,7 @@ func (m *model) renderDeleteConfirm() string {
 
 	var b strings.Builder
 	b.WriteString("\n")
-	b.WriteString(errorStyle.Render(fmt.Sprintf("Delete \"%s\"?", host.DisplayName)))
+	b.WriteString(errorStyle.Render(fmt.Sprintf("Delete \"%s\"?", host.Name)))
 	b.WriteString("\n\n")
 	b.WriteString(dimStyle.Render("[y] yes / [n] no"))
 	return b.String()

@@ -54,4 +54,12 @@ var (
 	accentStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color(colorAccent)).
 			Bold(true)
+
+	searchBarStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color(colorPrimary)).
+			Bold(true)
+
+	matchStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color(colorAccent)).
+			Bold(true)
 )

@@ -33,8 +33,8 @@ func TestShowEditScreen_PrefillsForm(t *testing.T) {
 	if m.editIndex != 0 {
 		t.Errorf("editIndex = %d, want 0", m.editIndex)
 	}
-	if m.hostForm.DisplayName != testHostPort.DisplayName {
-		t.Errorf("DisplayName = %q, want %q", m.hostForm.DisplayName, testHostPort.DisplayName)
+	if m.hostForm.Name != testHostPort.Name {
+		t.Errorf("Name = %q, want %q", m.hostForm.Name, testHostPort.Name)
 	}
 	if m.hostForm.Port != "2222" {
 		t.Errorf("Port = %q, want %q", m.hostForm.Port, "2222")

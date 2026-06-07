@@ -58,7 +58,7 @@
 | Package | Role |
 |---------|------|
 | `main` | Load config, create tea.Program, run. Nothing else. |
-| `internal/config` | `Host`/`Config` structs. `Store` interface for file I/O. Path resolution via `os.UserConfigDir`. |
+| `internal/config` | `Host`/`Config` structs. `Store` interface for file I/O. Path resolution via `os.UserConfigDir`. Name validation (`ValidateName`), lookup (`FindHostByName`), migration (`MigrateName`). |
 | `internal/ssh` | `BuildArgs` converts `Host` → `[]string`. `Run` executes `exec.Command("ssh", ...)`. No shell interpolation. |
 | `internal/tui` | All Bubble Tea Model/Update/View. Screen state machine. Lip Gloss styling. Huh forms for add/edit. |
 
@@ -68,8 +68,9 @@
 - **No password management.** Assumes `ssh-copy-id` has already been used. Portkey only runs `ssh` commands.
 - **SSH execution uses `exec.Command`.** Never `os/exec` with a shell string. Arguments are always separated.
 - **Port 22 is the default.** Only adds `-p <port>` when port ≠ 22.
-- **Display Name falls back to Username** when left empty.
+- **Name must be valid** per `config.ValidateName`: lowercase `[a-z0-9_-]` only, unique, non-empty.
 - **Config stored as JSON** at `$XDG_CONFIG_HOME/portkey/hosts.json` (platform-respectful via `os.UserConfigDir`).
+- **Schema uses `name` (not `displayName`).** Auto-migrates old `displayName` on load via `MigrateName`.
 
 ---
 
@@ -132,7 +133,7 @@ This project follows strict TDD:
 
 - **Never store passwords or private keys.** Portkey only stores display name, username, host, port.
 - **Never use shell interpolation for SSH.** Always `exec.Command("ssh", args...)`.
-- **Validate all inputs.** Username and host required. Port must be 1–65535 if provided, default 22.
+- **Validate all inputs.** Username and host required. Port must be 1–65535 if provided, default 22. Name must match `[a-z0-9_-]` and be unique. Use `config.ValidateName` as SSOT.
 
 ---
 
