@@ -219,6 +219,60 @@ ensure_in_path() {
   } >> "$RCFILE"
 }
 
+# ── Detect Linux distribution ─────────────────────────────────────────────
+detect_distro() {
+  if is_termux; then
+    echo "termux"
+    return
+  fi
+
+  if [ -f /etc/os-release ]; then
+    # shellcheck disable=SC1091
+    . /etc/os-release 2>/dev/null || true
+    echo "${ID:-unknown}"
+    return
+  fi
+
+  echo "unknown"
+}
+
+# ── SSH install hint per platform/distro ───────────────────────────────────
+ssh_install_hint() {
+  local distro="${1:-}"
+  case "$distro" in
+    ubuntu|debian|linuxmint|pop|elementary)
+      echo "sudo apt install openssh-client" ;;
+    fedora|rhel|centos|rocky|alma)
+      echo "sudo dnf install openssh-clients" ;;
+    arch|manjaro|endeavouros)
+      echo "sudo pacman -S openssh" ;;
+    alpine)
+      echo "apk add openssh-client" ;;
+    termux)
+      echo "pkg install openssh" ;;
+    darwin)
+      echo "brew install openssh" ;;
+    *)
+      echo "install openssh-client using your package manager" ;;
+  esac
+}
+
+# ── Check SSH dependency ───────────────────────────────────────────────────
+check_ssh_dependency() {
+  if command -v ssh >/dev/null 2>&1; then
+    ok "OpenSSH client found"
+    return 0
+  fi
+
+  warn "OpenSSH client not found."
+  local distro
+  distro="$(detect_distro)"
+  local hint
+  hint="$(ssh_install_hint "$distro")"
+  printf "\n  ${YELLOW}${BOLD}➜ Install it with:${RESET} %s\n\n" "$hint"
+  return 0
+}
+
 # ── Main ──────────────────────────────────────────────────────────────────
 main() {
   printf "\n${BOLD}  Portkey — Installer${RESET}\n\n"
@@ -281,6 +335,9 @@ main() {
 
   # Ensure PATH
   ensure_in_path "$bindir"
+
+  # Check SSH dependency
+  check_ssh_dependency
 
   # Done
   printf "\n"

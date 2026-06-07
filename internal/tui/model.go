@@ -7,7 +7,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
 	"github.com/yhzion/portkey/internal/config"
-	"github.com/yhzion/portkey/internal/ssh"
 	"github.com/yhzion/portkey/internal/updater"
 )
 
@@ -50,8 +49,6 @@ type errMsg struct{ err error }
 
 func (e errMsg) Error() string { return e.err.Error() }
 
-type sshDoneMsg struct{ err error }
-
 type updateAvailableMsg struct {
 	Tag string
 	Rel *updater.Release
@@ -88,7 +85,8 @@ type model struct {
 	filtered     []MatchResult // fuzzy match results for current query
 
 	// Last-connected tracking
-	connectIndex int // index of host being connected (-1 = none)
+	connectIndex int  // index of host being connected (-1 = none)
+	connected    bool // true after connectHost is called
 }
 
 type keyMap struct {
@@ -303,10 +301,8 @@ func (m *model) confirmDelete() tea.Cmd {
 
 func (m *model) connectHost(index int) tea.Cmd {
 	m.connectIndex = index
-	cmd := ssh.Command(m.config.Hosts[index])
-	return tea.ExecProcess(cmd, func(err error) tea.Msg {
-		return sshDoneMsg{err: err}
-	})
+	m.connected = true
+	return tea.Quit
 }
 
 // visibleHosts returns the host indices to display.
@@ -363,4 +359,25 @@ func (m *model) deactivateSearch() {
 	m.searchQuery = ""
 	m.filtered = nil
 	m.selected = 0
+}
+
+// SelectedHost extracts the selected host from a tea.Model after the TUI
+// exits. Returns the host and true if a host was selected, or false if
+// the user quit without selecting.
+func SelectedHost(m tea.Model) (*config.Host, bool) {
+	tui, ok := m.(*model)
+	if !ok {
+		return nil, false
+	}
+	if tui.connectIndex < 0 || tui.connectIndex >= len(tui.config.Hosts) {
+		return nil, false
+	}
+	// connectIndex 0 is ambiguous: could be unset (Go zero) or host 0.
+	// Use a sentinel: connectIndex is only valid after connectHost sets it.
+	// We track this via the connected field.
+	if !tui.connected {
+		return nil, false
+	}
+	host := tui.config.Hosts[tui.connectIndex]
+	return &host, true
 }

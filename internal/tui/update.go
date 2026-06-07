@@ -2,9 +2,7 @@ package tui
 
 import (
 	"fmt"
-	"os"
 	"strings"
-	"time"
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
@@ -23,19 +21,6 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case tea.KeyMsg:
 		return m.handleKey(msg)
-
-	case sshDoneMsg:
-		if msg.err != nil {
-			fmt.Fprintf(os.Stderr, "SSH error: %s\n", msg.err.Error())
-			return m, tea.Quit
-		}
-		// Update LastUsed on successful connect.
-		if m.connectIndex >= 0 && m.connectIndex < len(m.config.Hosts) {
-			m.config.Hosts[m.connectIndex].LastUsed = time.Now().Format(time.RFC3339)
-			m.connectIndex = -1
-			go m.saveFunc(m.config)
-		}
-		return m, tea.Quit
 
 	case updateAvailableMsg:
 		m.updateTag = msg.Tag

@@ -257,35 +257,6 @@ func TestUpdate_NilMsg_NoOp(t *testing.T) {
 	}
 }
 
-// --- SSH done message ---
-
-func TestUpdate_SshDoneSuccess_Quits(t *testing.T) {
-	m := newTestModel(testHostDev)
-	m.connectIndex = 0
-
-	_, cmd := m.Update(sshDoneMsg{err: nil})
-
-	// After successful SSH, model should quit.
-	if cmd == nil {
-		t.Error("expected quit command after successful SSH")
-	}
-	// LastUsed should be set.
-	if m.config.Hosts[0].LastUsed == "" {
-		t.Error("LastUsed should be set after successful connect")
-	}
-}
-
-func TestUpdate_SshDoneError_Quits(t *testing.T) {
-	m := newTestModel(testHostDev)
-
-	_, cmd := m.Update(sshDoneMsg{err: errTest})
-
-	// After SSH error, model should quit (error printed to stderr).
-	if cmd == nil {
-		t.Error("expected quit command after SSH error")
-	}
-}
-
 // --- Empty host list ---
 
 func TestEmptyHostList_NavigationClamp(t *testing.T) {
@@ -308,9 +279,36 @@ func TestHostList_FormEscape(t *testing.T) {
 	}
 }
 
-// errTest is a sentinel for tests that need a non-nil error.
-var errTest = &testError{}
+// --- SelectedHost extraction ---
 
-type testError struct{}
+func TestSelectedHost_NoSelection(t *testing.T) {
+	m := newTestModel(testHostDev)
+	_, ok := SelectedHost(m)
+	if ok {
+		t.Error("should return false when no host selected")
+	}
+}
 
-func (e *testError) Error() string { return "test error" }
+func TestSelectedHost_WithSelection(t *testing.T) {
+	m := newTestModel(testHostA, testHostB)
+	m.connectIndex = 1
+	m.connected = true
+	host, ok := SelectedHost(m)
+	if !ok {
+		t.Fatal("should return true when host selected")
+	}
+	if host.Name != "b" {
+		t.Errorf("host.Name = %q, want %q", host.Name, "b")
+	}
+}
+
+func TestSelectedHost_IndexOutOfRange(t *testing.T) {
+	m := newTestModel(testHostDev)
+	m.connectIndex = 5
+	_, ok := SelectedHost(m)
+	if ok {
+		t.Error("should return false for out-of-range index")
+	}
+}
+
+// errTest removed — no longer needed after sshDoneMsg removal.

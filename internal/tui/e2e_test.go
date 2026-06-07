@@ -1,7 +1,6 @@
 package tui
 
 import (
-	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -973,46 +972,53 @@ func TestE2E_Transition_ErrorScreen_AnyKey(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// E2E: SSH connect flow
+// E2E: Connect — select host and quit
 // ---------------------------------------------------------------------------
 
-func TestE2E_SSHDone_Error_Quits(t *testing.T) {
+func TestE2E_Connect_SelectHostAndQuit(t *testing.T) {
 	m := newTestModel(config.Host{Name: "dev", Username: "u", Host: "h", Port: 22})
 
-	_, cmd := m.Update(sshDoneMsg{err: errors.New("connection refused")})
-
-	// After SSH error, model should quit.
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	if cmd == nil {
-		t.Error("expected quit command after SSH error")
+		t.Fatal("enter on host should produce quit command")
+	}
+
+	// connectIndex should be set.
+	if m.connectIndex != 0 {
+		t.Errorf("connectIndex = %d, want 0", m.connectIndex)
+	}
+
+	// SelectedHost should return the host.
+	host, ok := SelectedHost(m)
+	if !ok {
+		t.Fatal("SelectedHost should return true")
+	}
+	if host.Name != "dev" {
+		t.Errorf("host.Name = %q, want %q", host.Name, "dev")
 	}
 }
 
-func TestE2E_SSHDone_Success_SetsLastUsedAndQuits(t *testing.T) {
-	m := newTestModel(config.Host{Name: "dev", Username: "u", Host: "h", Port: 22})
-	m.connectIndex = 0
+func TestE2E_Connect_QuickConnect(t *testing.T) {
+	m := newTestModel(
+		config.Host{Name: "a", Username: "u", Host: "h1", Port: 22},
+		config.Host{Name: "b", Username: "u", Host: "h2", Port: 22},
+	)
 
-	_, cmd := m.Update(sshDoneMsg{err: nil})
-
-	// After successful SSH, model should quit.
+	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'2'}})
 	if cmd == nil {
-		t.Error("expected quit command after successful SSH")
+		t.Fatal("quick-connect 2 should produce quit command")
 	}
-	if m.config.Hosts[0].LastUsed == "" {
-		t.Error("LastUsed should be set after successful connect")
+
+	if m.connectIndex != 1 {
+		t.Errorf("connectIndex = %d, want 1", m.connectIndex)
 	}
-	if m.connectIndex != -1 {
-		t.Errorf("connectIndex = %d, want -1 (reset)", m.connectIndex)
+
+	host, ok := SelectedHost(m)
+	if !ok {
+		t.Fatal("SelectedHost should return true")
 	}
-}
-
-func TestE2E_SSHDone_Success_NoHost_Quits(t *testing.T) {
-	m := newTestModel()
-	m.connectIndex = -1
-
-	_, cmd := m.Update(sshDoneMsg{err: nil})
-
-	if cmd == nil {
-		t.Error("expected quit command even with no host")
+	if host.Name != "b" {
+		t.Errorf("host.Name = %q, want %q", host.Name, "b")
 	}
 }
 
@@ -1342,15 +1348,19 @@ func TestE2E_Lifecycle_AddConnectEditDelete(t *testing.T) {
 		t.Errorf("Name = %q, want %q", m.config.Hosts[0].Name, "dev")
 	}
 
-	// --- CONNECT produces command (not executed in test). ---
+	// --- CONNECT: enter selects host and quits. ---
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	if cmd == nil {
-		t.Fatal("enter on host should produce connect command")
+		t.Fatal("enter on host should produce quit command")
 	}
-	// Simulate SSH error — model should quit.
-	_, cmd = m.Update(sshDoneMsg{err: errors.New("connection refused")})
-	if cmd == nil {
-		t.Error("expected quit command after SSH error")
+
+	// Verify host was selected.
+	host, ok := SelectedHost(m)
+	if !ok {
+		t.Fatal("SelectedHost should return true")
+	}
+	if host.Name != "dev" {
+		t.Errorf("host.Name = %q, want %q", host.Name, "dev")
 	}
 
 	// Re-create model for remaining lifecycle (edit + delete).
