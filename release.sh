@@ -4,41 +4,64 @@ set -euo pipefail
 # release.sh — calculate version, update changelog, tag, release.
 # Usage: ./release.sh [patch|minor|major]
 
-# ── Prerequisites ───────────────────────────────────────────────────
-MISSING=()
+# ── Colors ────────────────────────────────────────────────────────────────
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+CYAN='\033[0;36m'
+BOLD='\033[1m'
+DIM='\033[2m'
+RESET='\033[0m'
 
-require() {
-  local cmd="$1" install_cmd="${2:-}"
+info()  { printf "${CYAN}${BOLD}  ➜${RESET} %s\n" "$*"; }
+ok()    { printf "${GREEN}${BOLD}  ✓${RESET} %s\n" "$*"; }
+warn()  { printf "${YELLOW}${BOLD}  ⚠${RESET} %s\n" "$*"; }
+die()   { printf "${RED}${BOLD}  ✗${RESET} %s\n" "$*" >&2; exit 1; }
+
+# ── Prerequisites ────────────────────────────────────────────────────
+# Format: "command|install_command|install_hint"
+PREREQS=(
+  "go||from https://go.dev/dl"
+  "git||from https://git-scm.com"
+  "svu|go install github.com/caarlos0/svu@latest|go install github.com/caarlos0/svu@latest"
+  "goreleaser|go install github.com/goreleaser/goreleaser/v2@latest|go install github.com/goreleaser/goreleaser/v2@latest"
+)
+
+printf "\n${BOLD}  Portkey — Prerequisites${RESET}\n\n"
+
+FAILED=()
+for entry in "${PREREQS[@]}"; do
+  IFS='|' read -r cmd install_cmd install_hint <<< "$entry"
   if command -v "$cmd" &>/dev/null; then
-    return 0
-  fi
-  if [ -n "$install_cmd" ]; then
-    echo "$cmd not found. Installing..."
-    if $install_cmd; then
-      return 0
+    ok "$cmd"
+  elif [ -n "$install_cmd" ]; then
+    info "$cmd not found, installing..."
+    if $install_cmd 2>/dev/null; then
+      ok "$cmd installed"
+    else
+      warn "Could not install $cmd"
+      FAILED+=("$cmd|$install_hint")
     fi
+  else
+    warn "$cmd not found"
+    FAILED+=("$cmd|$install_hint")
   fi
-  MISSING+=("$cmd")
-}
+done
 
-require go
-require git
-require svu      "go install github.com/caarlos0/svu@latest"
-require goreleaser "go install github.com/goreleaser/goreleaser/v2@latest"
-
-if [ ${#MISSING[@]} -gt 0 ]; then
-  echo ""
-  echo "Missing commands: ${MISSING[*]}"
-  echo ""
-  echo "Install manually:"
-  echo "  go install github.com/caarlos0/svu@latest"
-  echo "  go install github.com/goreleaser/goreleaser/v2@latest"
-  echo ""
-  echo "Ensure ~/go/bin is in your PATH:"
-  echo "  export PATH=\"\$HOME/go/bin:\$PATH\""
+if [ ${#FAILED[@]} -gt 0 ]; then
+  printf "\n${RED}${BOLD}  ✗${RESET} Missing dependencies. Install manually:\n\n"
+  for entry in "${FAILED[@]}"; do
+    IFS='|' read -r cmd hint <<< "$entry"
+    printf "    ${BOLD}%s${RESET}\n      %s${DIM}%s${RESET}\n" "$cmd" "$ " "$hint"
+  done
+  printf "\n  Ensure ${BOLD}~/go/bin${RESET} is in your PATH:\n"
+  printf "    ${DIM}export PATH=\"\$HOME/go/bin:\$PATH\"${RESET}\n\n"
   exit 1
 fi
 
+printf "\n"
+
+# ── Version ──────────────────────────────────────────────────────────
 BUMP="${1:-}"
 
 if [ -n "$BUMP" ]; then
@@ -47,18 +70,17 @@ if [ -n "$BUMP" ]; then
     patch) NEXT="$(svu patch)" ;;
     minor) NEXT="$(svu minor)" ;;
     major) NEXT="$(svu major)" ;;
-    *) echo "Usage: $0 [patch|minor|major]" && exit 1 ;;
+    *) printf "\n  ${BOLD}Usage:${RESET} $0 [patch|minor|major]\n" && exit 1 ;;
   esac
 else
   NEXT="$(svu next)"
 fi
 
 if [ "$NEXT" = "$(svu current)" ]; then
-  echo "No version bump detected. Use: $0 [patch|minor|major]"
-  exit 1
+  die "No version bump detected. Use: $0 [patch|minor|major]"
 fi
 
-echo "Releasing $NEXT"
+info "Releasing ${NEXT}\n"
 
 # ── Update CHANGELOG.md ──────────────────────────────────────────────
 DATE="$(date +%Y-%m-%d)"
