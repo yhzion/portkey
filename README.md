@@ -7,14 +7,14 @@ It reads your saved hosts from a JSON config and presents a terminal UI
 where you can connect, add, edit, or delete hosts — all without leaving
 the keyboard.
 
-![portkey](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-blue)
+![portkey](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Android-blue)
 ![go](https://img.shields.io/badge/Go-1.26-00ADD8)
 
 ---
 
 ## Install
 
-### One-liner (macOS / Linux)
+### One-liner (macOS / Linux / Android Termux)
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/yhzion/portkey/main/install.sh | bash
@@ -25,6 +25,9 @@ Or with `wget`:
 ```bash
 wget -qO- https://raw.githubusercontent.com/yhzion/portkey/main/install.sh | bash
 ```
+
+> **Termux users:** The installer auto-detects Android/Termux and downloads
+> the correct binary. No manual steps needed.
 
 ### From source
 
@@ -43,6 +46,7 @@ Grab the latest archive from the
 | macOS   | arm64 | `portkey_<version>_darwin_arm64.tar.gz`  |
 | Linux   | amd64 | `portkey_<version>_linux_amd64.tar.gz`   |
 | Linux   | arm64 | `portkey_<version>_linux_arm64.tar.gz`   |
+| Android | arm64 | `portkey_<version>_android_arm64.tar.gz` |
 
 Extract and move the binary into your `$PATH`:
 

@@ -32,6 +32,12 @@ trap cleanup EXIT
 
 # ── Detect OS ─────────────────────────────────────────────────────────────
 detect_os() {
+  # Termux runs on Android — Bionic requires its own binary
+  if is_termux; then
+    echo "android"
+    return
+  fi
+
   local os
   os="$(uname -s | tr '[:upper:]' '[:lower:]')"
   case "$os" in
