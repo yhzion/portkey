@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.2.1] - 2026-06-07
+
+### Added
+- MIT LICENSE file
+- Improved update notification wording with ✨ emoji and gold accent color
+
+### Fixed
+- Goreleaser archives now include LICENSE and README.md
+
 ## [0.2.0] - 2026-06-07
 
 ### Added
