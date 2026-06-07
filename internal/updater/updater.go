@@ -136,7 +136,7 @@ func (c *Client) CheckLatest() (*Release, error) {
 
 	assets := make([]Asset, len(gh.Assets))
 	for i, a := range gh.Assets {
-		assets[i] = Asset{Name: a.Name, URL: a.URL}
+		assets[i] = Asset(a)
 	}
 
 	return &Release{Tag: gh.TagName, Assets: assets}, nil
