@@ -1,5 +1,15 @@
 # Changelog
 
+## [0.3.8] - 2026-06-08
+
+### Added
+- add download, verify, and install logic for self-update
+
+### Fixed
+- pick host and exit, run ssh from main after TUI quits
+- exit after SSH session and preserve terminal state
+
+
 ## [0.3.7] - 2026-06-08
 
 ### Fixed
