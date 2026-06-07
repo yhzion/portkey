@@ -7,8 +7,8 @@ set -euo pipefail
 BUMP="${1:-}"
 
 if ! command -v svu &>/dev/null; then
-  echo "svu not found. Install: go install github.com/caarlos0/svu@latest"
-  exit 1
+  echo "svu not found. Installing..."
+  go install github.com/caarlos0/svu@latest
 fi
 
 if [ -n "$BUMP" ]; then
@@ -76,13 +76,13 @@ git add CHANGELOG.md
 git commit -m "chore(release): prepare $NEXT"
 git tag "$NEXT"
 
-if command -v goreleaser &>/dev/null; then
-  if [ -z "${GITHUB_TOKEN:-}" ] && command -v gh &>/dev/null; then
-    GITHUB_TOKEN="$(gh auth token)"
-    export GITHUB_TOKEN
-  fi
-  goreleaser release --clean
-else
-  echo "goreleaser not found. Install: go install github.com/goreleaser/goreleaser/v2@latest"
-  echo "Tag $NEXT created. Run 'goreleaser release --clean' manually."
+if ! command -v goreleaser &>/dev/null; then
+  echo "goreleaser not found. Installing..."
+  go install github.com/goreleaser/goreleaser/v2@latest
 fi
+
+if [ -z "${GITHUB_TOKEN:-}" ] && command -v gh &>/dev/null; then
+  GITHUB_TOKEN="$(gh auth token)"
+  export GITHUB_TOKEN
+fi
+goreleaser release --clean
