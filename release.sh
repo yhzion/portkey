@@ -4,12 +4,42 @@ set -euo pipefail
 # release.sh — calculate version, update changelog, tag, release.
 # Usage: ./release.sh [patch|minor|major]
 
-BUMP="${1:-}"
+# ── Prerequisites ───────────────────────────────────────────────────
+MISSING=()
 
-if ! command -v svu &>/dev/null; then
-  echo "svu not found. Installing..."
-  go install github.com/caarlos0/svu@latest
+require() {
+  local cmd="$1" install_cmd="${2:-}"
+  if command -v "$cmd" &>/dev/null; then
+    return 0
+  fi
+  if [ -n "$install_cmd" ]; then
+    echo "$cmd not found. Installing..."
+    if $install_cmd; then
+      return 0
+    fi
+  fi
+  MISSING+=("$cmd")
+}
+
+require go
+require git
+require svu      "go install github.com/caarlos0/svu@latest"
+require goreleaser "go install github.com/goreleaser/goreleaser/v2@latest"
+
+if [ ${#MISSING[@]} -gt 0 ]; then
+  echo ""
+  echo "Missing commands: ${MISSING[*]}"
+  echo ""
+  echo "Install manually:"
+  echo "  go install github.com/caarlos0/svu@latest"
+  echo "  go install github.com/goreleaser/goreleaser/v2@latest"
+  echo ""
+  echo "Ensure ~/go/bin is in your PATH:"
+  echo "  export PATH=\"\$HOME/go/bin:\$PATH\""
+  exit 1
 fi
+
+BUMP="${1:-}"
 
 if [ -n "$BUMP" ]; then
   CURRENT="$(svu current)"
@@ -75,11 +105,6 @@ fi
 git add CHANGELOG.md
 git commit -m "chore(release): prepare $NEXT"
 git tag "$NEXT"
-
-if ! command -v goreleaser &>/dev/null; then
-  echo "goreleaser not found. Installing..."
-  go install github.com/goreleaser/goreleaser/v2@latest
-fi
 
 if [ -z "${GITHUB_TOKEN:-}" ] && command -v gh &>/dev/null; then
   GITHUB_TOKEN="$(gh auth token)"
