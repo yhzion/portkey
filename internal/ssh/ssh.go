@@ -21,6 +21,17 @@ func BuildArgs(host config.Host) []string {
 	return args
 }
 
+// Command creates an *exec.Cmd for ssh without running it.
+// The caller is responsible for setting Stdin/Stdout/Stderr and calling Run/Start.
+func Command(host config.Host) *exec.Cmd {
+	args := BuildArgs(host)
+	cmd := exec.Command("ssh", args...)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd
+}
+
 // Run executes ssh for the given host config.
 func Run(host config.Host) error {
 	args := BuildArgs(host)

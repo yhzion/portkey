@@ -69,6 +69,48 @@ func TestBuildArgsArgsAreSeparated(t *testing.T) {
 	}
 }
 
+func TestCommand_CreatesValidCmd(t *testing.T) {
+	host := config.Host{Name: "dev", Username: "alice", Host: "10.0.0.1", Port: 22}
+	cmd := ssh.Command(host)
+
+	if cmd.Path == "" {
+		t.Error("cmd.Path should not be empty")
+	}
+	if cmd.Stdin == nil || cmd.Stdout == nil || cmd.Stderr == nil {
+		t.Error("cmd Stdin/Stdout/Stderr should be set")
+	}
+	// Verify args contain the target.
+	found := false
+	for _, arg := range cmd.Args {
+		if arg == "alice@10.0.0.1" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("cmd.Args should contain %q, got %v", "alice@10.0.0.1", cmd.Args)
+	}
+}
+
+func TestCommand_CustomPortIncludesPFlag(t *testing.T) {
+	host := config.Host{Name: "dev", Username: "alice", Host: "10.0.0.1", Port: 2222}
+	cmd := ssh.Command(host)
+
+	// Should contain "-p" and "2222" in args.
+	foundP, foundPort := false, false
+	for _, arg := range cmd.Args {
+		if arg == "-p" {
+			foundP = true
+		}
+		if arg == "2222" {
+			foundPort = true
+		}
+	}
+	if !foundP || !foundPort {
+		t.Errorf("cmd.Args should contain -p 2222, got %v", cmd.Args)
+	}
+}
+
 func TestBuildArgsNeverShellString(t *testing.T) {
 	host := config.Host{Username: "u", Host: "h", Port: 22}
 	args := ssh.BuildArgs(host)

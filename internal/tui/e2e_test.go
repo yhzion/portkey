@@ -976,41 +976,43 @@ func TestE2E_Transition_ErrorScreen_AnyKey(t *testing.T) {
 // E2E: SSH connect flow
 // ---------------------------------------------------------------------------
 
-func TestE2E_SSHDone_Error(t *testing.T) {
+func TestE2E_SSHDone_Error_Quits(t *testing.T) {
 	m := newTestModel(config.Host{Name: "dev", Username: "u", Host: "h", Port: 22})
 
-	m.Update(sshDoneMsg{err: errors.New("connection refused")})
+	_, cmd := m.Update(sshDoneMsg{err: errors.New("connection refused")})
 
-	if m.screen != screenError {
-		t.Errorf("screen = %d, want screenError after SSH error", m.screen)
-	}
-	if !strings.Contains(m.errMsg, "connection refused") {
-		t.Errorf("errMsg = %q, should contain 'connection refused'", m.errMsg)
+	// After SSH error, model should quit.
+	if cmd == nil {
+		t.Error("expected quit command after SSH error")
 	}
 }
 
-func TestE2E_SSHDone_Success_SetsLastUsed(t *testing.T) {
+func TestE2E_SSHDone_Success_SetsLastUsedAndQuits(t *testing.T) {
 	m := newTestModel(config.Host{Name: "dev", Username: "u", Host: "h", Port: 22})
 	m.connectIndex = 0
 
 	_, cmd := m.Update(sshDoneMsg{err: nil})
-	pumpCmds(t, m, cmd)
 
-	if m.screen != screenHostList {
-		t.Errorf("screen = %d, want screenHostList after SSH success", m.screen)
+	// After successful SSH, model should quit.
+	if cmd == nil {
+		t.Error("expected quit command after successful SSH")
 	}
 	if m.config.Hosts[0].LastUsed == "" {
 		t.Error("LastUsed should be set after successful connect")
 	}
+	if m.connectIndex != -1 {
+		t.Errorf("connectIndex = %d, want -1 (reset)", m.connectIndex)
+	}
 }
 
-func TestE2E_SSHDone_Success_NoHost_Noop(t *testing.T) {
+func TestE2E_SSHDone_Success_NoHost_Quits(t *testing.T) {
 	m := newTestModel()
 	m.connectIndex = -1
 
-	m.Update(sshDoneMsg{err: nil})
-	if m.screen != screenHostList {
-		t.Errorf("screen = %d, want screenHostList", m.screen)
+	_, cmd := m.Update(sshDoneMsg{err: nil})
+
+	if cmd == nil {
+		t.Error("expected quit command even with no host")
 	}
 }
 
@@ -1340,22 +1342,19 @@ func TestE2E_Lifecycle_AddConnectEditDelete(t *testing.T) {
 		t.Errorf("Name = %q, want %q", m.config.Hosts[0].Name, "dev")
 	}
 
-	// --- CONNECT (command produced, don't execute it) ---
+	// --- CONNECT produces command (not executed in test). ---
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
 	if cmd == nil {
 		t.Fatal("enter on host should produce connect command")
 	}
+	// Simulate SSH error — model should quit.
+	_, cmd = m.Update(sshDoneMsg{err: errors.New("connection refused")})
+	if cmd == nil {
+		t.Error("expected quit command after SSH error")
+	}
 
-	// Simulate SSH error by directly sending an sshDoneMsg.
-	// We do NOT call cmd() because ssh.Run blocks.
-	m.Update(sshDoneMsg{err: errors.New("connection refused")})
-	if m.screen != screenError {
-		t.Errorf("screen = %d, want screenError after SSH error", m.screen)
-	}
-	pressKey(m, ' ')
-	if m.screen != screenHostList {
-		t.Errorf("screen = %d, want screenHostList after dismiss", m.screen)
-	}
+	// Re-create model for remaining lifecycle (edit + delete).
+	m = newTestModel(config.Host{Name: "dev", Username: "alice", Host: "192.168.1.1", Port: 22})
 
 	// --- EDIT ---
 	_, cmd = m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'e'}})

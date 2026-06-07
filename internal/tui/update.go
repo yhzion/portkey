@@ -2,19 +2,14 @@ package tui
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
-	"github.com/yhzion/portkey/internal/config"
-	"github.com/yhzion/portkey/internal/ssh"
 )
-
-func sshRun(host config.Host) error {
-	return ssh.Run(host)
-}
 
 func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
@@ -31,26 +26,16 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case sshDoneMsg:
 		if msg.err != nil {
-			m.errMsg = fmt.Sprintf("SSH error: %s", msg.err.Error())
-			m.screen = screenError
-		} else {
-			// Update LastUsed on successful connect.
-			if m.connectIndex >= 0 && m.connectIndex < len(m.config.Hosts) {
-				m.config.Hosts[m.connectIndex].LastUsed = time.Now().Format(time.RFC3339)
-				config.SortHosts(m.config.Hosts)
-				m.selected = 0
-				m.connectIndex = -1
-				return m, func() tea.Msg {
-					if err := m.saveFunc(m.config); err != nil {
-						return errMsg{err}
-					}
-					return nil
-				}
-			}
-			m.screen = screenHostList
+			fmt.Fprintf(os.Stderr, "SSH error: %s\n", msg.err.Error())
+			return m, tea.Quit
 		}
-		m.deactivateSearch()
-		return m, nil
+		// Update LastUsed on successful connect.
+		if m.connectIndex >= 0 && m.connectIndex < len(m.config.Hosts) {
+			m.config.Hosts[m.connectIndex].LastUsed = time.Now().Format(time.RFC3339)
+			m.connectIndex = -1
+			go m.saveFunc(m.config)
+		}
+		return m, tea.Quit
 
 	case updateAvailableMsg:
 		m.updateTag = msg.Tag

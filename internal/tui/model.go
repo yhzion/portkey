@@ -7,6 +7,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
 	"github.com/yhzion/portkey/internal/config"
+	"github.com/yhzion/portkey/internal/ssh"
 	"github.com/yhzion/portkey/internal/updater"
 )
 
@@ -302,10 +303,10 @@ func (m *model) confirmDelete() tea.Cmd {
 
 func (m *model) connectHost(index int) tea.Cmd {
 	m.connectIndex = index
-	return func() tea.Msg {
-		err := sshRun(m.config.Hosts[index])
+	cmd := ssh.Command(m.config.Hosts[index])
+	return tea.ExecProcess(cmd, func(err error) tea.Msg {
 		return sshDoneMsg{err: err}
-	}
+	})
 }
 
 // visibleHosts returns the host indices to display.
