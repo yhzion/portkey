@@ -34,7 +34,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	m := tui.InitialModel(cfg, version, upd)
+	configPath, _ := config.ConfigPath()
+	store := config.NewStore(configPath)
+
+	m := tui.InitialModel(cfg, version, upd, store)
 
 	p := tea.NewProgram(
 		m,
