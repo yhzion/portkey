@@ -293,7 +293,7 @@ func runDelete(args []string, configPath string) int {
 		var response string
 		fmt.Scanln(&response)
 		if response != "y" && response != "Y" {
-			fmt.Println("Cancelled.")
+			fmt.Println("Canceled.")
 			return ExitSuccess
 		}
 	}
