@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.5] - 2026-06-08
+
+### Fixed
+- add android/arm64 build target for Termux compatibility (#14)
+- add android/arm64 build target for Termux compatibility
+
+
 ## [0.3.4] - 2026-06-08
 
 ### Fixed
