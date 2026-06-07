@@ -473,3 +473,114 @@ func TestMigrateNameAlreadyValid(t *testing.T) {
 		t.Errorf("MigrateName(\"my-server_v2\") = %q, want %q", got, "my-server_v2")
 	}
 }
+
+// --- SortHosts tests ---
+
+func TestSortHostsByLastUsed(t *testing.T) {
+	hosts := []config.Host{
+		{Name: "old", Username: "u", Host: "h1", Port: 22, LastUsed: ""},
+		{Name: "recent", Username: "u", Host: "h2", Port: 22, LastUsed: "2026-06-07T12:00:00Z"},
+		{Name: "mid", Username: "u", Host: "h3", Port: 22, LastUsed: "2026-06-06T00:00:00Z"},
+	}
+	config.SortHosts(hosts)
+
+	if hosts[0].Name != "recent" {
+		t.Errorf("hosts[0].Name = %q, want %q", hosts[0].Name, "recent")
+	}
+	if hosts[1].Name != "mid" {
+		t.Errorf("hosts[1].Name = %q, want %q", hosts[1].Name, "mid")
+	}
+	if hosts[2].Name != "old" {
+		t.Errorf("hosts[2].Name = %q, want %q", hosts[2].Name, "old")
+	}
+}
+
+func TestSortHostsNeverUsedAlphabetical(t *testing.T) {
+	hosts := []config.Host{
+		{Name: "charlie", Username: "u", Host: "h1", Port: 22, LastUsed: ""},
+		{Name: "alpha", Username: "u", Host: "h2", Port: 22, LastUsed: ""},
+		{Name: "bravo", Username: "u", Host: "h3", Port: 22, LastUsed: ""},
+	}
+	config.SortHosts(hosts)
+
+	if hosts[0].Name != "alpha" {
+		t.Errorf("hosts[0].Name = %q, want %q", hosts[0].Name, "alpha")
+	}
+	if hosts[1].Name != "bravo" {
+		t.Errorf("hosts[1].Name = %q, want %q", hosts[1].Name, "bravo")
+	}
+	if hosts[2].Name != "charlie" {
+		t.Errorf("hosts[2].Name = %q, want %q", hosts[2].Name, "charlie")
+	}
+}
+
+func TestSortHostsMixedUsedAndNeverUsed(t *testing.T) {
+	hosts := []config.Host{
+		{Name: "never-used", Username: "u", Host: "h1", Port: 22, LastUsed: ""},
+		{Name: "used", Username: "u", Host: "h2", Port: 22, LastUsed: "2026-06-07T12:00:00Z"},
+	}
+	config.SortHosts(hosts)
+
+	if hosts[0].Name != "used" {
+		t.Errorf("hosts[0].Name = %q, want %q", hosts[0].Name, "used")
+	}
+	if hosts[1].Name != "never-used" {
+		t.Errorf("hosts[1].Name = %q, want %q", hosts[1].Name, "never-used")
+	}
+}
+
+func TestSortHostsStability(t *testing.T) {
+	hosts := []config.Host{
+		{Name: "b", Username: "u", Host: "h1", Port: 22, LastUsed: "2026-06-07T12:00:00Z"},
+		{Name: "a", Username: "u", Host: "h2", Port: 22, LastUsed: "2026-06-07T12:00:00Z"},
+	}
+	config.SortHosts(hosts)
+
+	if hosts[0].Name != "b" {
+		t.Errorf("hosts[0].Name = %q, want %q (stable)", hosts[0].Name, "b")
+	}
+	if hosts[1].Name != "a" {
+		t.Errorf("hosts[1].Name = %q, want %q (stable)", hosts[1].Name, "a")
+	}
+}
+
+func TestSortHostsEmpty(t *testing.T) {
+	hosts := []config.Host{}
+	config.SortHosts(hosts)
+	if len(hosts) != 0 {
+		t.Errorf("len(hosts) = %d, want 0", len(hosts))
+	}
+}
+
+func TestHostLastUsedJSONRoundTrip(t *testing.T) {
+	original := config.Host{
+		Name: "dev", Username: "u", Host: "h", Port: 22,
+		LastUsed: "2026-06-07T12:00:00Z",
+	}
+	data, err := json.Marshal(original)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var parsed config.Host
+	if err := json.Unmarshal(data, &parsed); err != nil {
+		t.Fatal(err)
+	}
+	if parsed.LastUsed != original.LastUsed {
+		t.Errorf("LastUsed = %q, want %q", parsed.LastUsed, original.LastUsed)
+	}
+}
+
+func TestHostLastUsedOmitempty(t *testing.T) {
+	h := config.Host{Name: "dev", Username: "u", Host: "h", Port: 22, LastUsed: ""}
+	data, err := json.Marshal(h)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var raw map[string]interface{}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := raw["lastUsed"]; ok {
+		t.Error("lastUsed should be omitted when empty")
+	}
+}

@@ -3,6 +3,7 @@ package tui
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
@@ -33,6 +34,19 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.errMsg = fmt.Sprintf("SSH error: %s", msg.err.Error())
 			m.screen = screenError
 		} else {
+			// Update LastUsed on successful connect.
+			if m.connectIndex >= 0 && m.connectIndex < len(m.config.Hosts) {
+				m.config.Hosts[m.connectIndex].LastUsed = time.Now().Format(time.RFC3339)
+				config.SortHosts(m.config.Hosts)
+				m.selected = 0
+				m.connectIndex = -1
+				return m, func() tea.Msg {
+					if err := config.Save(m.config); err != nil {
+						return errMsg{err}
+					}
+					return nil
+				}
+			}
 			m.screen = screenHostList
 		}
 		m.deactivateSearch()

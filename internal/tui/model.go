@@ -82,6 +82,9 @@ type model struct {
 	searchActive bool
 	searchQuery  string
 	filtered     []MatchResult // fuzzy match results for current query
+
+	// Last-connected tracking
+	connectIndex int // index of host being connected (-1 = none)
 }
 
 type keyMap struct {
@@ -155,6 +158,7 @@ func InitialModel(cfg *config.Config, version string, upd *updater.Client) tea.M
 }
 
 func (m *model) Init() tea.Cmd {
+	config.SortHosts(m.config.Hosts)
 	if m.Updater != nil && m.Version != "dev" {
 		return m.checkUpdate()
 	}
@@ -293,6 +297,7 @@ func (m *model) confirmDelete() tea.Cmd {
 }
 
 func (m *model) connectHost(index int) tea.Cmd {
+	m.connectIndex = index
 	return func() tea.Msg {
 		err := sshRun(m.config.Hosts[index])
 		return sshDoneMsg{err: err}

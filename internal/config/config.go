@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 )
 
@@ -15,6 +16,7 @@ type Host struct {
 	Username string `json:"username"`
 	Host     string `json:"host"`
 	Port     int    `json:"port"`
+	LastUsed string `json:"lastUsed,omitempty"`
 }
 
 type Config struct {
@@ -193,6 +195,23 @@ func (c *Config) FindHostByName(name string) (int, error) {
 			strings.Join(names, ", "),
 		)
 	}
+}
+
+// SortHosts sorts hosts by LastUsed descending. Hosts with empty LastUsed
+// sort to the bottom, grouped alphabetically by Name.
+func SortHosts(hosts []Host) {
+	sort.SliceStable(hosts, func(i, j int) bool {
+		if hosts[i].LastUsed != "" && hosts[j].LastUsed != "" {
+			return hosts[i].LastUsed > hosts[j].LastUsed
+		}
+		if hosts[i].LastUsed != "" {
+			return true
+		}
+		if hosts[j].LastUsed != "" {
+			return false
+		}
+		return hosts[i].Name < hosts[j].Name
+	})
 }
 
 // MigrateName converts a legacy display name to a valid slug.
