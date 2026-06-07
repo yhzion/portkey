@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.4] - 2026-06-08
+
+### Fixed
+- forward huh-internal messages for form field navigation
+- enable PIE build mode for Android/Termux compatibility
+
+
 ## [0.3.3] - 2026-06-07
 
 ### Fixed
