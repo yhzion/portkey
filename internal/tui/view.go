@@ -80,8 +80,7 @@ func (m *model) renderAddItem(index int, selected bool) string {
 }
 
 func (m *model) renderHelp() string {
-	help := helpStyle.Copy()
-	return help.Render("↑/↓ move · enter/space select · 1-9 quick select · a add · e edit · d delete · q quit")
+	return helpStyle.Render("↑/↓ move · enter/space select · 1-9 quick select · a add · e edit · d delete · q quit")
 }
 
 func (m *model) renderAddHost() string {
