@@ -2,6 +2,9 @@ package cli_test
 
 import (
 	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -9,6 +12,7 @@ import (
 
 	"github.com/yhzion/portkey/internal/cli"
 	"github.com/yhzion/portkey/internal/config"
+	"github.com/yhzion/portkey/internal/updater"
 )
 
 // helper creates a temp config file with given hosts and returns the path.
@@ -37,7 +41,7 @@ func configFromPath(t *testing.T, path string) *config.Config {
 
 func TestDispatchUnknownSubcommand(t *testing.T) {
 	path := setupConfig(t, nil)
-	code := cli.Dispatch([]string{"portkey", "bogus"}, "dev", path)
+	code := cli.Dispatch([]string{"portkey", "bogus"}, "dev", path, nil)
 	if code != 2 {
 		t.Errorf("Dispatch(bogus) = %d, want 2", code)
 	}
@@ -49,7 +53,7 @@ func TestDispatchListDefault(t *testing.T) {
 	path := setupConfig(t, []config.Host{
 		{Name: "prod", Username: "admin", Host: "10.0.0.1", Port: 22},
 	})
-	code := cli.Dispatch([]string{"portkey", "list"}, "dev", path)
+	code := cli.Dispatch([]string{"portkey", "list"}, "dev", path, nil)
 	if code != 0 {
 		t.Errorf("list = %d, want 0", code)
 	}
@@ -57,7 +61,7 @@ func TestDispatchListDefault(t *testing.T) {
 
 func TestDispatchListEmpty(t *testing.T) {
 	path := setupConfig(t, nil)
-	code := cli.Dispatch([]string{"portkey", "list"}, "dev", path)
+	code := cli.Dispatch([]string{"portkey", "list"}, "dev", path, nil)
 	if code != 0 {
 		t.Errorf("list (empty) = %d, want 0", code)
 	}
@@ -71,7 +75,7 @@ func TestDispatchListJSON(t *testing.T) {
 	old := os.Stdout
 	r, w, _ := os.Pipe()
 	os.Stdout = w
-	code := cli.Dispatch([]string{"portkey", "list", "--json"}, "dev", path)
+	code := cli.Dispatch([]string{"portkey", "list", "--json"}, "dev", path, nil)
 	w.Close()
 	os.Stdout = old
 
@@ -103,7 +107,7 @@ func TestDispatchAdd(t *testing.T) {
 		"--name", "myhost",
 		"--user", "admin",
 		"--host", "10.0.0.1",
-	}, "dev", path)
+	}, "dev", path, nil)
 	if code != 0 {
 		t.Fatalf("add = %d, want 0", code)
 	}
@@ -134,7 +138,7 @@ func TestDispatchAddWithPort(t *testing.T) {
 		"--user", "admin",
 		"--host", "10.0.0.1",
 		"--port", "2222",
-	}, "dev", path)
+	}, "dev", path, nil)
 	if code != 0 {
 		t.Fatalf("add --port = %d, want 0", code)
 	}
@@ -157,7 +161,7 @@ func TestDispatchAddDuplicateName(t *testing.T) {
 		"--name", "myhost",
 		"--user", "admin",
 		"--host", "10.0.0.2",
-	}, "dev", path)
+	}, "dev", path, nil)
 	os.Stderr = old
 
 	if code != 2 {
@@ -174,7 +178,7 @@ func TestDispatchAddInvalidName(t *testing.T) {
 		"--name", "Bad Name!",
 		"--user", "admin",
 		"--host", "10.0.0.1",
-	}, "dev", path)
+	}, "dev", path, nil)
 	os.Stderr = old
 
 	if code != 2 {
@@ -189,7 +193,7 @@ func TestDispatchAddMissingRequired(t *testing.T) {
 	code := cli.Dispatch([]string{
 		"portkey", "add",
 		"--name", "myhost",
-	}, "dev", path)
+	}, "dev", path, nil)
 	os.Stderr = old
 
 	if code != 2 {
@@ -207,7 +211,7 @@ func TestDispatchAddPortOutOfRange(t *testing.T) {
 		"--user", "admin",
 		"--host", "10.0.0.1",
 		"--port", "99999",
-	}, "dev", path)
+	}, "dev", path, nil)
 	os.Stderr = old
 
 	if code != 2 {
@@ -225,7 +229,7 @@ func TestDispatchEdit(t *testing.T) {
 		"portkey", "edit",
 		"--name", "myhost",
 		"--user", "root",
-	}, "dev", path)
+	}, "dev", path, nil)
 	if code != 0 {
 		t.Fatalf("edit = %d, want 0", code)
 	}
@@ -248,7 +252,7 @@ func TestDispatchEditRename(t *testing.T) {
 		"portkey", "edit",
 		"--name", "myhost",
 		"--new-name", "renamed",
-	}, "dev", path)
+	}, "dev", path, nil)
 	if code != 0 {
 		t.Fatalf("edit rename = %d, want 0", code)
 	}
@@ -267,7 +271,7 @@ func TestDispatchEditSuffixMatch(t *testing.T) {
 		"portkey", "edit",
 		"--name", "api",
 		"--user", "root",
-	}, "dev", path)
+	}, "dev", path, nil)
 	if code != 0 {
 		t.Fatalf("edit suffix = %d, want 0", code)
 	}
@@ -286,7 +290,7 @@ func TestDispatchEditNotFound(t *testing.T) {
 		"portkey", "edit",
 		"--name", "nope",
 		"--user", "root",
-	}, "dev", path)
+	}, "dev", path, nil)
 	os.Stderr = old
 
 	if code != 1 {
@@ -305,7 +309,7 @@ func TestDispatchEditAmbiguous(t *testing.T) {
 		"portkey", "edit",
 		"--name", "api",
 		"--user", "root",
-	}, "dev", path)
+	}, "dev", path, nil)
 	os.Stderr = old
 
 	if code != 1 {
@@ -329,7 +333,7 @@ func TestDispatchDelete(t *testing.T) {
 	code := cli.Dispatch([]string{
 		"portkey", "delete",
 		"--name", "myhost",
-	}, "dev", path)
+	}, "dev", path, nil)
 
 	r.Close()
 	os.Stdin = oldStdin
@@ -352,7 +356,7 @@ func TestDispatchDeleteForce(t *testing.T) {
 		"portkey", "delete",
 		"--name", "myhost",
 		"--force",
-	}, "dev", path)
+	}, "dev", path, nil)
 	if code != 0 {
 		t.Fatalf("delete --force = %d, want 0", code)
 	}
@@ -371,7 +375,7 @@ func TestDispatchDeleteNotFound(t *testing.T) {
 		"portkey", "delete",
 		"--name", "nope",
 		"--force",
-	}, "dev", path)
+	}, "dev", path, nil)
 	os.Stderr = old
 
 	if code != 1 {
@@ -388,7 +392,7 @@ func TestDispatchConnectNotFound(t *testing.T) {
 	code := cli.Dispatch([]string{
 		"portkey", "connect",
 		"--name", "nope",
-	}, "dev", path)
+	}, "dev", path, nil)
 	os.Stderr = old
 
 	if code != 1 {
@@ -406,7 +410,7 @@ func TestDispatchConnectInvalidPort(t *testing.T) {
 		"portkey", "connect",
 		"--name", "myhost",
 		"--port", "99999",
-	}, "dev", path)
+	}, "dev", path, nil)
 	os.Stderr = old
 
 	if code != 2 {
@@ -417,14 +421,14 @@ func TestDispatchConnectInvalidPort(t *testing.T) {
 // --- help ---
 
 func TestDispatchHelpList(t *testing.T) {
-	code := cli.Dispatch([]string{"portkey", "list", "--help"}, "dev", "")
+	code := cli.Dispatch([]string{"portkey", "list", "--help"}, "dev", "", nil)
 	if code != 0 {
 		t.Errorf("list --help = %d, want 0", code)
 	}
 }
 
 func TestDispatchHelpAdd(t *testing.T) {
-	code := cli.Dispatch([]string{"portkey", "add", "--help"}, "dev", "")
+	code := cli.Dispatch([]string{"portkey", "add", "--help"}, "dev", "", nil)
 	if code != 0 {
 		t.Errorf("add --help = %d, want 0", code)
 	}
@@ -433,14 +437,14 @@ func TestDispatchHelpAdd(t *testing.T) {
 // --- version ---
 
 func TestDispatchVersion(t *testing.T) {
-	code := cli.Dispatch([]string{"portkey", "--version"}, "1.2.3", "")
+	code := cli.Dispatch([]string{"portkey", "--version"}, "1.2.3", "", nil)
 	if code != 0 {
 		t.Errorf("--version = %d, want 0", code)
 	}
 }
 
 func TestDispatchHelp(t *testing.T) {
-	code := cli.Dispatch([]string{"portkey", "--help"}, "1.2.3", "")
+	code := cli.Dispatch([]string{"portkey", "--help"}, "1.2.3", "", nil)
 	if code != 0 {
 		t.Errorf("--help = %d, want 0", code)
 	}
@@ -449,7 +453,7 @@ func TestDispatchHelp(t *testing.T) {
 // --- config file not found (graceful for list) ---
 
 func TestDispatchListNoConfig(t *testing.T) {
-	code := cli.Dispatch([]string{"portkey", "list"}, "dev", "/nonexistent/hosts.json")
+	code := cli.Dispatch([]string{"portkey", "list"}, "dev", "/nonexistent/hosts.json", nil)
 	if code != 0 {
 		t.Errorf("list no config = %d, want 0 (empty list)", code)
 	}
@@ -464,7 +468,7 @@ func TestDispatchListContainsHostData(t *testing.T) {
 	old := os.Stdout
 	r, w, _ := os.Pipe()
 	os.Stdout = w
-	code := cli.Dispatch([]string{"portkey", "list"}, "dev", path)
+	code := cli.Dispatch([]string{"portkey", "list"}, "dev", path, nil)
 	w.Close()
 	os.Stdout = old
 
@@ -480,5 +484,53 @@ func TestDispatchListContainsHostData(t *testing.T) {
 	}
 	if !strings.Contains(output, "admin") {
 		t.Errorf("list output should contain username, got: %q", output)
+	}
+}
+
+// --- update ---
+
+func TestDispatchUpdateHelp(t *testing.T) {
+	code := cli.Dispatch([]string{"portkey", "update", "--help"}, "dev", "", nil)
+	if code != 0 {
+		t.Errorf("update --help = %d, want 0", code)
+	}
+}
+
+func TestDispatchUpdateAlreadyUpToDate(t *testing.T) {
+	code := cli.Dispatch([]string{"portkey", "update"}, "v99.0.0", "", nil)
+	if code != 0 {
+		t.Errorf("update up-to-date = %d, want 0", code)
+	}
+}
+
+func TestDispatchUpdateNewerAvailable(t *testing.T) {
+	// Use a mock server to simulate GitHub API
+	mux := http.NewServeMux()
+	mux.HandleFunc("/repos/yhzion/portkey/releases/latest", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{
+			"tag_name": "v0.2.0",
+			"assets": []
+		}`)
+	})
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	upd := &updater.Client{
+		HTTP:    server.Client(),
+		Owner:   "yhzion",
+		Repo:    "portkey",
+		BaseURL: server.URL,
+	}
+
+	// Capture stderr for error message
+	old := os.Stderr
+	os.Stderr, _ = os.Open(os.DevNull)
+	code := cli.Dispatch([]string{"portkey", "update"}, "v0.1.0", "", upd)
+	os.Stderr = old
+
+	// Will fail because no assets, but should get past the version check
+	if code != 1 {
+		t.Errorf("update with no assets = %d, want 1 (runtime error)", code)
 	}
 }

@@ -19,8 +19,10 @@ import (
 var version = "dev"
 
 func main() {
+	upd := updater.DefaultClient()
+
 	if len(os.Args) > 1 {
-		code := cli.Dispatch(os.Args, version, "")
+		code := cli.Dispatch(os.Args, version, "", upd)
 		if code >= 0 {
 			os.Exit(code)
 		}
@@ -32,7 +34,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	upd := updater.DefaultClient()
 	m := tui.InitialModel(cfg, version, upd)
 
 	p := tea.NewProgram(

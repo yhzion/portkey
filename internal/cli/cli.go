@@ -10,6 +10,7 @@ import (
 
 	"github.com/yhzion/portkey/internal/config"
 	"github.com/yhzion/portkey/internal/ssh"
+	"github.com/yhzion/portkey/internal/updater"
 )
 
 const (
@@ -20,7 +21,7 @@ const (
 
 // Dispatch interprets os.Args and dispatches to the appropriate subcommand.
 // Returns exit code, or -1 to signal the caller to launch the TUI.
-func Dispatch(osArgs []string, version string, configPath string) int {
+func Dispatch(osArgs []string, version string, configPath string, upd *updater.Client) int {
 	if len(osArgs) < 2 {
 		return -1
 	}
@@ -42,6 +43,8 @@ func Dispatch(osArgs []string, version string, configPath string) int {
 		return runDelete(osArgs[2:], configPath)
 	case "connect":
 		return runConnect(osArgs[2:], configPath)
+	case "update":
+		return runUpdate(osArgs[2:], version, upd)
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown subcommand: %s\n", osArgs[1])
 		fmt.Fprintf(os.Stderr, "Run 'portkey --help' for usage.\n")
@@ -372,7 +375,8 @@ func helpRoot(version string) string {
 		"  add        Add a new host\n" +
 		"  edit       Edit an existing host\n" +
 		"  delete     Delete a host\n" +
-		"  connect    SSH to a host\n\n" +
+		"  connect    SSH to a host\n" +
+		"  update     Update portkey to the latest version\n\n" +
 		"GLOBAL FLAGS:\n" +
 		"  --help       Print help and exit\n" +
 		"  --version    Print version and exit\n\n" +
@@ -466,4 +470,48 @@ func helpConnect() string {
 		"EXAMPLES:\n" +
 		"  portkey connect --name prod\n" +
 		"  portkey connect --name prod --user root --port 2222\n"
+}
+
+func runUpdate(args []string, version string, upd *updater.Client) int {
+	if hasHelp(args) {
+		fmt.Print(helpUpdate())
+		return ExitSuccess
+	}
+
+	if upd == nil {
+		upd = updater.DefaultClient()
+	}
+
+	rel, err := upd.CheckLatest()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error checking for updates: %v\n", err)
+		return ExitRuntime
+	}
+
+	if !updater.IsNewer(version, rel.Tag) {
+		fmt.Printf("Already up to date (%s).\n", version)
+		return ExitSuccess
+	}
+
+	fmt.Printf("Updating %s → %s ...\n", version, rel.Tag)
+
+	if err := upd.DownloadAndInstall(rel); err != nil {
+		fmt.Fprintf(os.Stderr, "Error updating: %v\n", err)
+		return ExitRuntime
+	}
+
+	fmt.Printf("Updated to %s.\n", rel.Tag)
+	return ExitSuccess
+}
+
+func helpUpdate() string {
+	return "update - Update portkey to the latest version.\n\n" +
+		"USAGE:\n" +
+		"  portkey update\n\n" +
+		"DESCRIPTION:\n" +
+		"  Checks GitHub for the latest release and updates portkey if a newer\n" +
+		"  version is available. The running binary is replaced in-place.\n\n" +
+		"EXIT CODES:\n" +
+		"  0    Updated or already up to date\n" +
+		"  1    Update failed (network, permissions, etc.)\n"
 }
