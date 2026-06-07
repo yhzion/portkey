@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.3.0] - 2026-06-07
+
+### Added
+- add CLI subcommands for non-interactive usage
+- sort host list by last used (default ordering)
+- add fuzzy search/filter in host list
+
+
 ## [0.2.1] - 2026-06-07
 
 ### Added
