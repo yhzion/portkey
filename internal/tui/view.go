@@ -13,9 +13,9 @@ func (m *model) View() string {
 	case screenHostList:
 		return m.renderHostList()
 	case screenAddHost:
-		return m.renderAddHost()
+		return m.renderFormScreen("Add Host")
 	case screenEditHost:
-		return m.renderEditHost()
+		return m.renderFormScreen("Edit Host")
 	case screenDeleteConfirm:
 		return m.renderDeleteConfirm()
 	case screenError:
@@ -31,38 +31,38 @@ func (m *model) renderHostList() string {
 	b.WriteString("\n\n")
 
 	if len(m.config.Hosts) == 0 {
-		b.WriteString(m.renderAddItem(0, true))
+		b.WriteString(m.renderAddItem(true))
 		b.WriteString("\n")
-		b.WriteString(emptyStyle.Render("No hosts registered yet."))
+		b.WriteString(dimStyle.Render("No hosts registered yet."))
 		b.WriteString("\n")
 		b.WriteString(helpStyle.Render("↑/↓ move · enter select · a add · q quit"))
 		return b.String()
 	}
 
 	for i, host := range m.config.Hosts {
-		isSelected := i == m.selected
-		b.WriteString(m.renderHostItem(i, host, isSelected))
+		b.WriteString(m.renderHostItem(i, host, i == m.selected))
 	}
 
-	b.WriteString(m.renderAddItem(len(m.config.Hosts), m.selected == len(m.config.Hosts)))
+	b.WriteString(m.renderAddItem(m.selected == len(m.config.Hosts)))
 
 	b.WriteString("\n")
-	b.WriteString(m.renderHelp())
+	b.WriteString(
+		helpStyle.Render("↑/↓ move · enter/space select · 1-9 quick select · a add · e edit · d delete · q quit"),
+	)
 
 	return b.String()
 }
 
 func (m *model) renderHostItem(index int, host config.Host, selected bool) string {
-	indexStr := fmt.Sprintf("%d.", index+1)
 	connInfo := fmt.Sprintf("%s@%s", host.Username, host.Host)
 	if host.Port != 22 {
 		connInfo = fmt.Sprintf("%s:%d", connInfo, host.Port)
 	}
 
 	line := fmt.Sprintf("%s %s %s",
-		indexStyle.Render(indexStr),
+		indexStyle.Render(fmt.Sprintf("%d.", index+1)),
 		nameStyle.Render(host.DisplayName),
-		connStyle.Render(connInfo),
+		dimStyle.Render(connInfo),
 	)
 
 	if selected {
@@ -71,43 +71,23 @@ func (m *model) renderHostItem(index int, host config.Host, selected bool) strin
 	return "  " + normalStyle.Render(line) + "\n"
 }
 
-func (m *model) renderAddItem(index int, selected bool) string {
+func (m *model) renderAddItem(selected bool) string {
 	label := "+ Add new host"
 	if selected {
-		return cursorStyle.Render("▸ ") + selectedAddStyle.Render("  "+label) + "\n"
+		return cursorStyle.Render("▸ ") + selectedStyle.Render("  "+label) + "\n"
 	}
 	return "  " + addItemStyle.Render(label) + "\n"
 }
 
-func (m *model) renderHelp() string {
-	return helpStyle.Render("↑/↓ move · enter/space select · 1-9 quick select · a add · e edit · d delete · q quit")
-}
-
-func (m *model) renderAddHost() string {
+func (m *model) renderFormScreen(label string) string {
 	var b strings.Builder
 	b.WriteString(titleStyle.Render("Portkey"))
-	b.WriteString(" — ")
-	b.WriteString(successStyle.Render("Add Host"))
+	b.WriteString(" ")
+	b.WriteString(dimStyle.Render("·"))
+	b.WriteString(" ")
+	b.WriteString(normalStyle.Render(label))
 	b.WriteString("\n\n")
-
-	view := m.form.View()
-	b.WriteString(view)
-
-	b.WriteString("\n")
-	b.WriteString(helpStyle.Render("esc cancel"))
-	return b.String()
-}
-
-func (m *model) renderEditHost() string {
-	var b strings.Builder
-	b.WriteString(titleStyle.Render("Portkey"))
-	b.WriteString(" — ")
-	b.WriteString(successStyle.Render("Edit Host"))
-	b.WriteString("\n\n")
-
-	view := m.form.View()
-	b.WriteString(view)
-
+	b.WriteString(m.form.View())
 	b.WriteString("\n")
 	b.WriteString(helpStyle.Render("esc cancel"))
 	return b.String()
@@ -118,9 +98,9 @@ func (m *model) renderDeleteConfirm() string {
 
 	var b strings.Builder
 	b.WriteString("\n")
-	b.WriteString(deleteConfirmStyle.Render(fmt.Sprintf("Delete \"%s\"?", host.DisplayName)))
+	b.WriteString(errorStyle.Render(fmt.Sprintf("Delete \"%s\"?", host.DisplayName)))
 	b.WriteString("\n\n")
-	b.WriteString(normalStyle.Render("[y] yes / [n] no"))
+	b.WriteString(dimStyle.Render("[y] yes / [n] no"))
 	return b.String()
 }
 
@@ -129,7 +109,7 @@ func (m *model) renderError() string {
 	b.WriteString("\n")
 	b.WriteString(errorStyle.Render("Error: " + m.errMsg))
 	b.WriteString("\n\n")
-	b.WriteString(normalStyle.Render("Press any key to return to host list."))
+	b.WriteString(dimStyle.Render("Press any key to return to host list."))
 	return b.String()
 }
 
