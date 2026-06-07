@@ -41,7 +41,7 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.selected = 0
 				m.connectIndex = -1
 				return m, func() tea.Msg {
-					if err := config.Save(m.config); err != nil {
+					if err := m.saveFunc(m.config); err != nil {
 						return errMsg{err}
 					}
 					return nil
@@ -77,6 +77,15 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 	case nil:
 		return m, nil
+
+	default:
+		// Forward huh-internal messages (nextFieldMsg, prevFieldMsg,
+		// nextGroupMsg, updateFieldMsg, etc.) to the form when on a
+		// form screen. These are produced by form commands and must be
+		// routed back for field navigation to work.
+		if m.screen == screenAddHost || m.screen == screenEditHost {
+			return m.forwardToForm(msg)
+		}
 	}
 
 	return m, nil
@@ -217,6 +226,24 @@ func (m *model) handleSearchKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// forwardToForm passes a message to the huh form and handles the result.
+// This is used for huh-internal messages that drive field navigation.
+func (m *model) forwardToForm(msg tea.Msg) (tea.Model, tea.Cmd) {
+	if m.form == nil {
+		return m, nil
+	}
+	formModel, cmd := m.form.Update(msg)
+	m.form = formModel.(*huh.Form)
+	if m.form.State == huh.StateCompleted {
+		return m, m.saveAndGoBack()
+	}
+	if m.form.State == huh.StateAborted {
+		m.screen = screenHostList
+		return m, nil
+	}
+	return m, cmd
+}
+
 func (m *model) handleFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	if key.Matches(msg, m.keys.Escape) {
 		m.screen = screenHostList
@@ -228,6 +255,10 @@ func (m *model) handleFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 	if m.form.State == huh.StateCompleted {
 		return m, m.saveAndGoBack()
+	}
+	if m.form.State == huh.StateAborted {
+		m.screen = screenHostList
+		return m, nil
 	}
 
 	return m, cmd

@@ -28,7 +28,9 @@ func newBaseForm() *hostForm {
 
 func newTestModel(hosts ...config.Host) *model {
 	cfg := &config.Config{Hosts: hosts}
-	return InitialModel(cfg, "v0.1.0", nil).(*model)
+	m := InitialModel(cfg, "v0.1.0", nil).(*model)
+	m.saveFunc = func(_ *config.Config) error { return nil }
+	return m
 }
 
 func TestHostForm_ToHost_DefaultPort(t *testing.T) {
