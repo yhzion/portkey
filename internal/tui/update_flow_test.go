@@ -20,7 +20,7 @@ func TestHostList_UKey_NoUpdateAvailable(t *testing.T) {
 
 func TestHostList_UKey_WithUpdateAvailable(t *testing.T) {
 	m := newTestModel(testHostDev)
-	m.latestRelease = &updater.Release{Tag: "v99.0.0"}
+	m.updateModel.latestRelease = &updater.Release{Tag: "v99.0.0"}
 	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'u'}})
 	if m.screen != screenUpdateConfirm {
 		t.Errorf("screen = %d, want screenUpdateConfirm", m.screen)
@@ -29,7 +29,7 @@ func TestHostList_UKey_WithUpdateAvailable(t *testing.T) {
 
 func TestUpdateConfirm_Y(t *testing.T) {
 	m := newTestModel(testHostDev)
-	m.latestRelease = &updater.Release{Tag: "v99.0.0"}
+	m.updateModel.latestRelease = &updater.Release{Tag: "v99.0.0"}
 	m.screen = screenUpdateConfirm
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'y'}})
 	if cmd == nil {
@@ -39,7 +39,7 @@ func TestUpdateConfirm_Y(t *testing.T) {
 
 func TestUpdateConfirm_N(t *testing.T) {
 	m := newTestModel(testHostDev)
-	m.latestRelease = &updater.Release{Tag: "v99.0.0"}
+	m.updateModel.latestRelease = &updater.Release{Tag: "v99.0.0"}
 	m.screen = screenUpdateConfirm
 	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'n'}})
 	if m.screen != screenHostList {
@@ -49,7 +49,7 @@ func TestUpdateConfirm_N(t *testing.T) {
 
 func TestUpdateConfirm_Esc(t *testing.T) {
 	m := newTestModel(testHostDev)
-	m.latestRelease = &updater.Release{Tag: "v99.0.0"}
+	m.updateModel.latestRelease = &updater.Release{Tag: "v99.0.0"}
 	m.screen = screenUpdateConfirm
 	m.Update(tea.KeyMsg{Type: tea.KeyEsc})
 	if m.screen != screenHostList {
@@ -60,10 +60,10 @@ func TestUpdateConfirm_Esc(t *testing.T) {
 func TestUpdateAvailableMsg_SetsNotification(t *testing.T) {
 	m := newTestModel(testHostDev)
 	m.Update(updateAvailableMsg{Tag: "v0.2.0", Rel: &updater.Release{Tag: "v0.2.0"}})
-	if m.updateTag != "v0.2.0" {
-		t.Errorf("updateTag = %q, want %q", m.updateTag, "v0.2.0")
+	if m.updateModel.tag != "v0.2.0" {
+		t.Errorf("updateTag = %q, want %q", m.updateModel.tag, "v0.2.0")
 	}
-	if m.latestRelease == nil {
+	if m.updateModel.latestRelease == nil {
 		t.Error("latestRelease should be set")
 	}
 }
@@ -74,7 +74,7 @@ func TestUpdateCheckFailedMsg_Silent(t *testing.T) {
 	if m.screen != screenHostList {
 		t.Error("update check failure should not change screen")
 	}
-	if m.updateTag != "" {
+	if m.updateModel.tag != "" {
 		t.Error("update check failure should not set update tag")
 	}
 }
