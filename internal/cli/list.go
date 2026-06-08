@@ -10,28 +10,24 @@ import (
 	"github.com/yhzion/portkey/internal/config"
 )
 
-func runList(args []string, configPath string) int {
-	if hasHelp(args) {
-		fmt.Print(helpList())
-		return ExitSuccess
-	}
-	fs := flag.NewFlagSet("list", flag.ContinueOnError)
-	jsonOutput := fs.Bool("json", false, "output as JSON")
-	fs.Usage = func() { fmt.Print(helpList()) }
-	if err := fs.Parse(args); err != nil {
-		return ExitUsage
-	}
+var listCmd = &Command{
+	Name:      "list",
+	ShortDesc: "List configured hosts",
+	Flags: func(fs *flag.FlagSet) {
+		fs.Bool("json", false, "output as JSON")
+	},
+	Run: func(ctx *RunContext) int {
+		cfg, err := loadConfig(ctx.ConfigPath)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
+			return ExitRuntime
+		}
 
-	cfg, err := loadConfig(configPath)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
-		return ExitRuntime
-	}
-
-	if *jsonOutput {
-		return printHostsJSON(cfg.Hosts)
-	}
-	return printHostsTable(cfg.Hosts)
+		if getBool(ctx.Flags, "json") {
+			return printHostsJSON(cfg.Hosts)
+		}
+		return printHostsTable(cfg.Hosts)
+	},
 }
 
 func printHostsJSON(hosts []config.Host) int {

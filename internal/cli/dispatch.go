@@ -1,9 +1,11 @@
 package cli
 
 import (
+	"flag"
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/yhzion/portkey/internal/config"
 	"github.com/yhzion/portkey/internal/updater"
@@ -15,6 +17,36 @@ const (
 	ExitUsage   = 2
 )
 
+// Command represents a CLI subcommand.
+type Command struct {
+	Name      string
+	ShortDesc string
+	Flags     func(fs *flag.FlagSet)   // register flags
+	Run       func(ctx *RunContext) int // business logic
+}
+
+// RunContext carries parsed flags and shared data into Command.Run.
+type RunContext struct {
+	Flags      *flag.FlagSet
+	ConfigPath string
+	Args       []string
+}
+
+// Commands holds all registered subcommands in display order. Exported for tests.
+var Commands = []*Command{
+	listCmd, addCmd, editCmd, deleteCmd, connectCmd, updateCmd,
+}
+
+// commands maps subcommand names to their Command definitions.
+var commands = map[string]*Command{
+	"list":    listCmd,
+	"add":     addCmd,
+	"edit":    editCmd,
+	"delete":  deleteCmd,
+	"connect": connectCmd,
+	"update":  updateCmd,
+}
+
 // Dispatch interprets os.Args and dispatches to the appropriate subcommand.
 // Returns exit code, or -1 to signal the caller to launch the TUI.
 func Dispatch(osArgs []string, version string, configPath string, upd *updater.Client) int {
@@ -22,30 +54,89 @@ func Dispatch(osArgs []string, version string, configPath string, upd *updater.C
 		return -1
 	}
 
-	switch osArgs[1] {
+	name := osArgs[1]
+
+	switch name {
 	case "--help", "-h":
-		fmt.Print(helpRoot(version))
+		fmt.Print(rootHelp())
 		return ExitSuccess
 	case "--version", "-v":
 		fmt.Printf("portkey %s\n", version)
 		return ExitSuccess
-	case "list":
-		return runList(osArgs[2:], configPath)
-	case "add":
-		return runAdd(osArgs[2:], configPath)
-	case "edit":
-		return runEdit(osArgs[2:], configPath)
-	case "delete":
-		return runDelete(osArgs[2:], configPath)
-	case "connect":
-		return runConnect(osArgs[2:], configPath)
-	case "update":
-		return runUpdate(osArgs[2:], version, upd)
-	default:
-		fmt.Fprintf(os.Stderr, "Unknown subcommand: %s\n", osArgs[1])
+	}
+
+	cmd, ok := commands[name]
+	if !ok {
+		fmt.Fprintf(os.Stderr, "Unknown subcommand: %s\n", name)
 		fmt.Fprintf(os.Stderr, "Run 'portkey --help' for usage.\n")
 		return ExitUsage
 	}
+
+	if hasHelp(osArgs[2:]) {
+		fmt.Print(cmd.Help())
+		return ExitSuccess
+	}
+
+	// Update needs client and version injected at call time.
+	if name == "update" {
+		cmd = newUpdateCmd(upd, version)
+	}
+
+	fs := flag.NewFlagSet(name, flag.ContinueOnError)
+	fs.Usage = func() { fmt.Print(cmd.Help()) }
+	if cmd.Flags != nil {
+		cmd.Flags(fs)
+	}
+	if err := fs.Parse(osArgs[2:]); err != nil {
+		return ExitUsage
+	}
+
+	return cmd.Run(&RunContext{
+		Flags:      fs,
+		ConfigPath: configPath,
+		Args:       fs.Args(),
+	})
+}
+
+// Help generates usage text from Command metadata + flag definitions.
+func (c *Command) Help() string {
+	var b strings.Builder
+	fmt.Fprintf(&b, "Usage: portkey %s [flags]\n\n", c.Name)
+	fmt.Fprintf(&b, "%s\n", c.ShortDesc)
+
+	if c.Flags != nil {
+		fs := flag.NewFlagSet(c.Name, flag.ContinueOnError)
+		c.Flags(fs)
+		hasFlags := false
+		fs.VisitAll(func(f *flag.Flag) { hasFlags = true })
+		if hasFlags {
+			fmt.Fprintf(&b, "\nFlags:\n")
+			fs.VisitAll(func(f *flag.Flag) {
+				fmt.Fprintf(&b, "  --%-12s %s", f.Name, f.Usage)
+				if f.DefValue != "" && f.DefValue != "false" {
+					fmt.Fprintf(&b, " (default: %s)", f.DefValue)
+				}
+				b.WriteByte('\n')
+			})
+		}
+	}
+
+	return b.String()
+}
+
+// rootHelp generates the top-level help.
+func rootHelp() string {
+	var b strings.Builder
+	b.WriteString("portkey - Pick a host and jump in.\n\n")
+	b.WriteString("USAGE:\n")
+	b.WriteString("  portkey                              Launch interactive TUI\n")
+	b.WriteString("  portkey <subcommand> [flags]\n\n")
+	b.WriteString("SUBCOMMANDS:\n")
+	for _, cmd := range Commands {
+		fmt.Fprintf(&b, "  %-10s %s\n", cmd.Name, cmd.ShortDesc)
+	}
+	b.WriteString("\nRun 'portkey <subcommand> --help' for details.\n")
+	return b.String()
 }
 
 // hasHelp checks args for --help or -h flags.
@@ -74,7 +165,18 @@ func saveConfig(configPath string, cfg *config.Config) error {
 	return config.NewStore(configPath).Save(cfg)
 }
 
-// parsePort validates a port string. Returns (port, exitCode). SSOT.
+// getString returns the string value of a named flag.
+func getString(fs *flag.FlagSet, name string) string {
+	return fs.Lookup(name).Value.String()
+}
+
+// getBool returns the bool value of a named flag.
+func getBool(fs *flag.FlagSet, name string) bool {
+	b, _ := strconv.ParseBool(fs.Lookup(name).Value.String())
+	return b
+}
+
+// parsePort validates a port string. Returns (port, exitCode).
 func parsePort(s string) (int, int) {
 	port, err := strconv.Atoi(s)
 	if err != nil {
