@@ -1096,13 +1096,13 @@ func TestE2E_View_HostListHelpBar(t *testing.T) {
 
 func TestE2E_View_HostListWithUpdate(t *testing.T) {
 	m := newTestModel(config.Host{Name: "a", Username: "u", Host: "h1", Port: 22})
-	m.updateTag = "v0.2.0"
+	m.updateModel.tag = "v0.2.0"
 	viewContains(t, m, "v0.2.0", "update")
 }
 
 func TestE2E_View_UpdateConfirm(t *testing.T) {
 	m := newTestModel(config.Host{Name: "a", Username: "u", Host: "h1", Port: 22})
-	m.updateTag = "v0.2.0"
+	m.updateModel.tag = "v0.2.0"
 	m.screen = screenUpdateConfirm
 	viewContains(t, m, "v0.2.0", "Update now")
 }
@@ -1227,7 +1227,7 @@ func TestE2E_Update_UKeyNoUpdate(t *testing.T) {
 
 func TestE2E_Update_UKeyWithUpdate(t *testing.T) {
 	m := newTestModel(config.Host{Name: "a", Username: "u", Host: "h", Port: 22})
-	m.latestRelease = &updater.Release{Tag: "v99.0.0"}
+	m.updateModel.latestRelease = &updater.Release{Tag: "v99.0.0"}
 
 	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'u'}})
 	if m.screen != screenUpdateConfirm {
@@ -1261,7 +1261,7 @@ func TestE2E_Edge_DeleteConfirm_IgnoresRandomKeys(t *testing.T) {
 
 func TestE2E_Edge_UpdateConfirmYesNo(t *testing.T) {
 	m := newTestModel(config.Host{Name: "a", Username: "u", Host: "h", Port: 22})
-	m.latestRelease = &updater.Release{Tag: "v99.0.0"}
+	m.updateModel.latestRelease = &updater.Release{Tag: "v99.0.0"}
 	m.screen = screenUpdateConfirm
 
 	// 'n' cancels.

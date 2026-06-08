@@ -23,7 +23,7 @@ func TestCheckUpdate_NewerAvailable(t *testing.T) {
 	checker := fakeUpdateChecker{rel: &updater.Release{Tag: "v99.0.0"}}
 	m := InitialModel(&config.Config{}, "v0.1.0", checker, mockStore{}).(*model)
 
-	msg := m.checkUpdate()()
+	msg := m.updateModel.checkUpdate()()
 
 	avail, ok := msg.(updateAvailableMsg)
 	if !ok {
@@ -38,7 +38,7 @@ func TestCheckUpdate_UpToDate(t *testing.T) {
 	checker := fakeUpdateChecker{rel: &updater.Release{Tag: "v0.1.0"}}
 	m := InitialModel(&config.Config{}, "v0.1.0", checker, mockStore{}).(*model)
 
-	if msg := m.checkUpdate()(); msg != nil {
+	if msg := m.updateModel.checkUpdate()(); msg != nil {
 		t.Errorf("checkUpdate() up-to-date msg = %v, want nil", msg)
 	}
 }
@@ -47,7 +47,7 @@ func TestCheckUpdate_Error(t *testing.T) {
 	checker := fakeUpdateChecker{err: errors.New("network down")}
 	m := InitialModel(&config.Config{}, "v0.1.0", checker, mockStore{}).(*model)
 
-	if _, ok := m.checkUpdate()().(updateCheckFailedMsg); !ok {
+	if _, ok := m.updateModel.checkUpdate()().(updateCheckFailedMsg); !ok {
 		t.Error("expected updateCheckFailedMsg on error")
 	}
 }

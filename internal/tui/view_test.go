@@ -147,7 +147,7 @@ func TestView_DefaultPortNotShown(t *testing.T) {
 
 func TestView_UpdateNotification(t *testing.T) {
 	m := newTestModel(testHostDev)
-	m.updateTag = "v0.2.0"
+	m.updateModel.tag = "v0.2.0"
 	view := m.View()
 
 	if !strings.Contains(view, "available") {
@@ -160,8 +160,8 @@ func TestView_UpdateNotification(t *testing.T) {
 
 func TestView_UpdateConfirm(t *testing.T) {
 	m := newTestModel(testHostDev)
-	m.updateTag = "v0.2.0"
-	m.latestRelease = &updater.Release{Tag: "v0.2.0"}
+	m.updateModel.tag = "v0.2.0"
+	m.updateModel.latestRelease = &updater.Release{Tag: "v0.2.0"}
 	m.screen = screenUpdateConfirm
 	view := m.View()
 
