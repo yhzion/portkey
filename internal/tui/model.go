@@ -60,6 +60,56 @@ type updateDoneMsg struct {
 	err error
 }
 
+// formModel encapsulates the add/edit host form state.
+type formModel struct {
+	form     *huh.Form
+	hostForm *hostForm
+}
+
+// showAdd builds an empty add-host form and returns its init command.
+func (f *formModel) showAdd() tea.Cmd {
+	f.hostForm = &hostForm{Port: "22"}
+	f.form = buildHostForm(f.hostForm)
+	return f.form.Init()
+}
+
+// showEdit builds an edit form pre-filled from the given host.
+func (f *formModel) showEdit(h config.Host) tea.Cmd {
+	portStr := ""
+	if h.Port != 0 {
+		portStr = fmt.Sprintf("%d", h.Port)
+	}
+	if portStr == "" {
+		portStr = "22"
+	}
+	f.hostForm = &hostForm{
+		Name:     h.Name,
+		Username: h.Username,
+		Host:     h.Host,
+		Port:     portStr,
+	}
+	f.form = buildHostForm(f.hostForm)
+	return f.form.Init()
+}
+
+// resize adjusts the form width to fit the terminal.
+func (f *formModel) resize(width int) {
+	if f.form != nil {
+		f.form = f.form.WithWidth(min(width-4, 80))
+	}
+}
+
+// update forwards a message to the huh form and returns its resulting state.
+// Returns StateNormal with no command when no form is active.
+func (f *formModel) update(msg tea.Msg) (huh.FormState, tea.Cmd) {
+	if f.form == nil {
+		return huh.StateNormal, nil
+	}
+	updated, cmd := f.form.Update(msg)
+	f.form = updated.(*huh.Form)
+	return f.form.State, cmd
+}
+
 // searchModel encapsulates the host-list search/filter state.
 type searchModel struct {
 	active   bool
@@ -118,9 +168,7 @@ type model struct {
 	screen        screen
 	config        *config.Config
 	selected      int
-	form          *huh.Form
-	hostForm      *hostForm
-	editIndex     int
+	editIndex     int // target row for edit/delete modal ops (shared by form + delete)
 	errMsg        string
 	keys          keyMap
 	width         int
@@ -132,6 +180,9 @@ type model struct {
 
 	// store persists config. Provided via dependency injection.
 	store config.Store
+
+	// Add/edit form state
+	formModel formModel
 
 	// Search/filter state
 	search searchModel
@@ -286,30 +337,13 @@ func buildHostForm(hf *hostForm) *huh.Form {
 
 func (m *model) showAddScreen() tea.Cmd {
 	m.screen = screenAddHost
-	m.hostForm = &hostForm{Port: "22"}
-	m.form = buildHostForm(m.hostForm)
-	return m.form.Init()
+	return m.formModel.showAdd()
 }
 
 func (m *model) showEditScreen(index int) tea.Cmd {
 	m.screen = screenEditHost
 	m.editIndex = index
-	h := m.config.Hosts[index]
-	portStr := ""
-	if h.Port != 0 {
-		portStr = fmt.Sprintf("%d", h.Port)
-	}
-	if portStr == "" {
-		portStr = "22"
-	}
-	m.hostForm = &hostForm{
-		Name:     h.Name,
-		Username: h.Username,
-		Host:     h.Host,
-		Port:     portStr,
-	}
-	m.form = buildHostForm(m.hostForm)
-	return m.form.Init()
+	return m.formModel.showEdit(m.config.Hosts[index])
 }
 
 func (m *model) showDeleteConfirm(index int) {
@@ -318,7 +352,7 @@ func (m *model) showDeleteConfirm(index int) {
 }
 
 func (m *model) saveAndGoBack() tea.Cmd {
-	host := m.hostForm.toHost()
+	host := m.formModel.hostForm.toHost()
 
 	if m.screen == screenAddHost {
 		m.config.AddHost(host)

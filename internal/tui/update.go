@@ -14,9 +14,7 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		if m.form != nil {
-			m.form = m.form.WithWidth(min(msg.Width-4, 80))
-		}
+		m.formModel.resize(msg.Width)
 		return m, nil
 
 	case tea.KeyMsg:
@@ -200,19 +198,7 @@ func (m *model) handleSearchKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 // forwardToForm passes a message to the huh form and handles the result.
 // This is used for huh-internal messages that drive field navigation.
 func (m *model) forwardToForm(msg tea.Msg) (tea.Model, tea.Cmd) {
-	if m.form == nil {
-		return m, nil
-	}
-	formModel, cmd := m.form.Update(msg)
-	m.form = formModel.(*huh.Form)
-	if m.form.State == huh.StateCompleted {
-		return m, m.saveAndGoBack()
-	}
-	if m.form.State == huh.StateAborted {
-		m.screen = screenHostList
-		return m, nil
-	}
-	return m, cmd
+	return m.applyFormState(m.formModel.update(msg))
 }
 
 func (m *model) handleFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -220,18 +206,19 @@ func (m *model) handleFormKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.screen = screenHostList
 		return m, nil
 	}
+	return m.applyFormState(m.formModel.update(msg))
+}
 
-	formModel, cmd := m.form.Update(msg)
-	m.form = formModel.(*huh.Form)
-
-	if m.form.State == huh.StateCompleted {
+// applyFormState resolves a form update: save and return to the list on
+// completion, cancel to the list on abort, otherwise pass the command through.
+func (m *model) applyFormState(state huh.FormState, cmd tea.Cmd) (tea.Model, tea.Cmd) {
+	switch state {
+	case huh.StateCompleted:
 		return m, m.saveAndGoBack()
-	}
-	if m.form.State == huh.StateAborted {
+	case huh.StateAborted:
 		m.screen = screenHostList
 		return m, nil
 	}
-
 	return m, cmd
 }
 

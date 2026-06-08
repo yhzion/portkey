@@ -161,7 +161,7 @@ func (m *model) renderFormScreen(label string) string {
 	b.WriteString(" ")
 	b.WriteString(normalStyle.Render(label))
 	b.WriteString("\n\n")
-	b.WriteString(m.form.View())
+	b.WriteString(m.formModel.form.View())
 	b.WriteString("\n")
 	b.WriteString(helpStyle.Render("esc cancel"))
 	return b.String()
