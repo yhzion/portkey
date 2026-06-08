@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.3.11] - 2026-06-08
+
+### Fixed
+- mock GitHub API in TestDispatchUpdateAlreadyUpToDate
+
+
 ## [0.3.10] - 2026-06-08
 
 ### Added
