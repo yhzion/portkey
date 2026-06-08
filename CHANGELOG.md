@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.3.13] - 2026-06-08
+
+### Fixed
+- use literal space in sed for macOS compatibility
+
+
 ## [0.3.12] - 2026-06-08
 
 
