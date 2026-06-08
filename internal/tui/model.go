@@ -258,6 +258,9 @@ func newKeyMap() keyMap {
 }
 
 func InitialModel(cfg *config.Config, version string, upd UpdateChecker, store config.Store) tea.Model {
+	if client, ok := upd.(*updater.Client); ok && client == nil {
+		upd = nil
+	}
 	m := &model{
 		screen:   screenHostList,
 		config:   cfg,
