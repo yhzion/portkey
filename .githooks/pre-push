@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# pre-push hook — lint and test install.sh before pushing.
+#
+# Enable once per clone:
+#   git config core.hooksPath .githooks
+#
+# Note: this runs on the *pusher's* OS only. It catches regressions on your
+# machine's sed/grep (BSD on macOS, GNU on Linux), but the authoritative
+# cross-platform gate is the CI matrix (.github/workflows/release.yml), which
+# runs the same checks on both macOS and Ubuntu.
+set -euo pipefail
+
+cd "$(git rev-parse --show-toplevel)"
+
+if command -v shellcheck >/dev/null 2>&1; then
+  echo "pre-push: shellcheck install.sh"
+  shellcheck --severity=warning install.sh
+else
+  echo "pre-push: shellcheck not found — skipping (brew install shellcheck)"
+fi
+
+if command -v bats >/dev/null 2>&1; then
+  echo "pre-push: bats tests/"
+  bats tests/
+else
+  echo "pre-push: bats not found — skipping (brew install bats-core / apt install bats)"
+fi

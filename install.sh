@@ -352,4 +352,8 @@ main() {
   fi
 }
 
-main "$@"
+# Run main only when executed (`./install.sh`) or piped (`curl … | bash`),
+# not when sourced — so tests can source the functions without installing.
+if ! (return 0 2>/dev/null); then
+  main "$@"
+fi

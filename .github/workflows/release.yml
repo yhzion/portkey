@@ -25,3 +25,20 @@ jobs:
       - run: go test -count=1 -race ./...
       - run: go install honnef.co/go/tools/cmd/staticcheck@latest
       - run: staticcheck ./...
+
+  install-script:
+    strategy:
+      matrix:
+        os: [macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install shellcheck and bats
+        run: |
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            brew install shellcheck bats-core
+          else
+            sudo apt-get update && sudo apt-get install -y shellcheck bats
+          fi
+      - run: shellcheck --severity=warning install.sh
+      - run: bats tests/
