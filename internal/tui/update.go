@@ -79,7 +79,7 @@ func (m *model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 
 func (m *model) handleHostListKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	// When search is active, handle search input first.
-	if m.searchActive {
+	if m.search.Active {
 		return m.handleSearchKey(msg)
 	}
 
@@ -150,8 +150,8 @@ func (m *model) handleSearchKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.deactivateSearch()
 		return m, nil
 	case msg.Type == tea.KeyBackspace:
-		if len(m.searchQuery) > 0 {
-			m.searchQuery = m.searchQuery[:len(m.searchQuery)-1]
+		if len(m.search.Query) > 0 {
+			m.search.Query = m.search.Query[:len(m.search.Query)-1]
 			m.updateFilter()
 		} else {
 			m.deactivateSearch()
@@ -189,7 +189,7 @@ func (m *model) handleSearchKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		// Printable character: append to search query.
 		if len(r) == 1 && r[0] >= 32 && r[0] < 127 {
-			m.searchQuery += r
+			m.search.Query += r
 			m.updateFilter()
 		}
 	}

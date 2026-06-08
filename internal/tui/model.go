@@ -60,6 +60,32 @@ type updateDoneMsg struct {
 	err error
 }
 
+// SearchModel encapsulates the host-list search/filter state.
+type SearchModel struct {
+	Active   bool
+	Query    string
+	Filtered []MatchResult // fuzzy match results for current query
+}
+
+// Activate enters search mode and seeds the filter with all hosts.
+func (s *SearchModel) Activate(hosts []config.Host) {
+	s.Active = true
+	s.Query = ""
+	s.Filtered = FuzzyMatch(hosts, "")
+}
+
+// Deactivate exits search mode and clears the filter.
+func (s *SearchModel) Deactivate() {
+	s.Active = false
+	s.Query = ""
+	s.Filtered = nil
+}
+
+// UpdateFilter re-runs fuzzy match for the current query.
+func (s *SearchModel) UpdateFilter(hosts []config.Host) {
+	s.Filtered = FuzzyMatch(hosts, s.Query)
+}
+
 type model struct {
 	screen        screen
 	config        *config.Config
@@ -80,9 +106,7 @@ type model struct {
 	store config.Store
 
 	// Search/filter state
-	searchActive bool
-	searchQuery  string
-	filtered     []MatchResult // fuzzy match results for current query
+	search SearchModel
 
 	// Last-connected tracking
 	connectIndex int  // index of host being connected (-1 = none)
@@ -308,9 +332,9 @@ func (m *model) connectHost(index int) tea.Cmd {
 // visibleHosts returns the host indices to display.
 // When search is active, returns filtered results; otherwise all hosts.
 func (m *model) visibleHosts() []int {
-	if m.searchActive {
-		indices := make([]int, len(m.filtered))
-		for i, r := range m.filtered {
+	if m.search.Active {
+		indices := make([]int, len(m.search.Filtered))
+		for i, r := range m.search.Filtered {
 			indices[i] = r.HostIndex
 		}
 		return indices
@@ -339,25 +363,21 @@ func (m *model) selectedHostIndex() int {
 
 // updateFilter runs fuzzy match and resets selection.
 func (m *model) updateFilter() {
-	m.filtered = FuzzyMatch(m.config.Hosts, m.searchQuery)
-	if m.selected >= len(m.filtered)+1 {
-		m.selected = max(0, len(m.filtered))
+	m.search.UpdateFilter(m.config.Hosts)
+	if m.selected >= len(m.search.Filtered)+1 {
+		m.selected = max(0, len(m.search.Filtered))
 	}
 }
 
 // activateSearch enters search mode.
 func (m *model) activateSearch() {
-	m.searchActive = true
-	m.searchQuery = ""
-	m.filtered = FuzzyMatch(m.config.Hosts, "")
+	m.search.Activate(m.config.Hosts)
 	m.selected = 0
 }
 
 // deactivateSearch exits search mode and restores full list.
 func (m *model) deactivateSearch() {
-	m.searchActive = false
-	m.searchQuery = ""
-	m.filtered = nil
+	m.search.Deactivate()
 	m.selected = 0
 }
 
