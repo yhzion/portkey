@@ -7,7 +7,6 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
 	"github.com/yhzion/portkey/internal/config"
-	"github.com/yhzion/portkey/internal/updater"
 )
 
 type screen int
@@ -173,18 +172,17 @@ func (s *searchModel) matchMap() map[int]*matchResult {
 }
 
 type model struct {
-	screen        screen
-	config        *config.Config
-	selected      int
-	editIndex     int // target row for edit/delete modal ops (shared by form + delete)
-	errMsg        string
-	keys          keyMap
-	width         int
-	height        int
-	updateTag     string
-	latestRelease *updater.Release
-	Version       string
-	Updater       UpdateChecker
+	screen    screen
+	config    *config.Config
+	selected  int
+	editIndex int // target row for edit/delete modal ops (shared by form + delete)
+	errMsg    string
+	keys      keyMap
+	width     int
+	height    int
+
+	// Update state
+	updateModel updateModel
 
 	// store persists config. Provided via dependency injection.
 	store config.Store
@@ -267,32 +265,21 @@ func InitialModel(cfg *config.Config, version string, upd UpdateChecker, store c
 		config:   cfg,
 		selected: 0,
 		keys:     newKeyMap(),
-		Version:  version,
-		Updater:  upd,
 		store:    store,
+		updateModel: updateModel{
+			version: version,
+			checker: upd,
+		},
 	}
 	return m
 }
 
 func (m *model) Init() tea.Cmd {
 	config.SortHosts(m.config.Hosts)
-	if m.Updater != nil && m.Version != "dev" {
-		return m.checkUpdate()
+	if m.updateModel.checker != nil && m.updateModel.version != "dev" {
+		return m.updateModel.checkUpdate()
 	}
 	return nil
-}
-
-func (m *model) checkUpdate() tea.Cmd {
-	return func() tea.Msg {
-		rel, err := m.Updater.CheckLatest()
-		if err != nil {
-			return updateCheckFailedMsg{}
-		}
-		if updater.IsNewer(m.Version, rel.Tag) {
-			return updateAvailableMsg{Tag: rel.Tag, Rel: rel}
-		}
-		return nil
-	}
 }
 
 func buildHostForm(hf *hostForm) *huh.Form {
