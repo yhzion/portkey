@@ -104,7 +104,7 @@ func (s *SearchModel) Indices() []int {
 // is inactive. Map values point into s.Filtered and are valid as long as
 // the slice is not reallocated.
 func (s *SearchModel) MatchMap() map[int]*MatchResult {
-	if !s.Active {
+	if !s.Active || len(s.Filtered) == 0 {
 		return nil
 	}
 	m := make(map[int]*MatchResult, len(s.Filtered))
