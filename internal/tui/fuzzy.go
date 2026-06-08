@@ -7,21 +7,21 @@ import (
 	"github.com/yhzion/portkey/internal/config"
 )
 
-// MatchResult holds a fuzzy match result with ranking and highlight positions.
-type MatchResult struct {
-	HostIndex int     // index in original []config.Host
-	Score     float64 // higher is better
-	Positions []int   // rune positions in the matched string for highlighting
+// matchResult holds a fuzzy match result with ranking and highlight positions.
+type matchResult struct {
+	hostIndex int     // index in original []config.Host
+	score     float64 // higher is better
+	positions []int   // rune positions in the matched string for highlighting
 }
 
-// FuzzyMatch filters and ranks hosts by fuzzy-matching query against
+// fuzzyMatch filters and ranks hosts by fuzzy-matching query against
 // each host's Name, Username, and Host fields. Returns results sorted
 // by descending score. An empty query returns all hosts with score 0.
-func FuzzyMatch(hosts []config.Host, query string) []MatchResult {
+func fuzzyMatch(hosts []config.Host, query string) []matchResult {
 	if query == "" {
-		results := make([]MatchResult, len(hosts))
+		results := make([]matchResult, len(hosts))
 		for i := range hosts {
-			results[i] = MatchResult{HostIndex: i, Score: 0}
+			results[i] = matchResult{hostIndex: i, score: 0}
 		}
 		return results
 	}
@@ -29,7 +29,7 @@ func FuzzyMatch(hosts []config.Host, query string) []MatchResult {
 	qLower := strings.ToLower(query)
 
 	// Track best result per host index (dedup across multiple fields).
-	bestForHost := make(map[int]MatchResult)
+	bestForHost := make(map[int]matchResult)
 
 	for i, h := range hosts {
 		candidates := []string{h.Name, h.Username, h.Host}
@@ -38,20 +38,20 @@ func FuzzyMatch(hosts []config.Host, query string) []MatchResult {
 			if !ok {
 				continue
 			}
-			result.HostIndex = i
+			result.hostIndex = i
 
 			// Exact name match gets a big bonus.
 			if strings.ToLower(h.Name) == qLower {
-				result.Score += 100
+				result.score += 100
 			}
 
-			if existing, exists := bestForHost[i]; !exists || result.Score > existing.Score {
+			if existing, exists := bestForHost[i]; !exists || result.score > existing.score {
 				bestForHost[i] = result
 			}
 		}
 	}
 
-	results := make([]MatchResult, 0, len(bestForHost))
+	results := make([]matchResult, 0, len(bestForHost))
 	for _, r := range bestForHost {
 		results = append(results, r)
 	}
@@ -64,19 +64,19 @@ func FuzzyMatch(hosts []config.Host, query string) []MatchResult {
 // fuzzyString performs fuzzy matching of query runes against target runes.
 // Returns positions of matched characters and a score. Returns ok=false if
 // the query doesn't match (characters not found in order).
-func fuzzyString(target, query string) (MatchResult, bool) {
+func fuzzyString(target, query string) (matchResult, bool) {
 	targetRunes := []rune(target)
 	queryRunes := []rune(query)
 
 	// Collect all possible match position sets, pick the best scoring one.
 	positions, score, ok := findBestMatch(targetRunes, queryRunes, 0, 0)
 	if !ok {
-		return MatchResult{}, false
+		return matchResult{}, false
 	}
 
-	return MatchResult{
-		Score:     score,
-		Positions: positions,
+	return matchResult{
+		score:     score,
+		positions: positions,
 	}, true
 }
 
@@ -145,9 +145,9 @@ func isWordBoundary(r rune) bool {
 
 // sortByScore sorts results by descending score using insertion sort
 // (good enough for the small host lists we deal with).
-func sortByScore(results []MatchResult) {
+func sortByScore(results []matchResult) {
 	for i := 1; i < len(results); i++ {
-		for j := i; j > 0 && results[j].Score > results[j-1].Score; j-- {
+		for j := i; j > 0 && results[j].score > results[j-1].score; j-- {
 			results[j], results[j-1] = results[j-1], results[j]
 		}
 	}

@@ -1122,26 +1122,26 @@ func TestE2E_Search_ActivateDeactivate(t *testing.T) {
 		config.Host{Name: "alpha", Username: "u", Host: "h1", Port: 22},
 		config.Host{Name: "beta", Username: "u", Host: "h2", Port: 22},
 	)
-	if m.search.Active {
+	if m.search.active {
 		t.Error("search should start inactive")
 	}
 
 	// Activate with '/'.
 	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
-	if !m.search.Active {
+	if !m.search.active {
 		t.Error("search should be active after /")
 	}
 	viewContains(t, m, "/>")
 
 	// Type query (one rune at a time, like real keyboard input).
 	typeString(m, "alp")
-	if m.search.Query != "alp" {
-		t.Errorf("searchQuery = %q, want %q", m.search.Query, "alp")
+	if m.search.query != "alp" {
+		t.Errorf("searchQuery = %q, want %q", m.search.query, "alp")
 	}
 
 	// Esc deactivates.
 	pressEsc(m)
-	if m.search.Active {
+	if m.search.active {
 		t.Error("search should be inactive after esc")
 	}
 }
@@ -1174,22 +1174,22 @@ func TestE2E_Search_BackspaceDeletesQuery(t *testing.T) {
 		config.Host{Name: "alpha", Username: "u", Host: "h1", Port: 22},
 	)
 	m.activateSearch()
-	m.search.Query = "ab"
+	m.search.query = "ab"
 	m.updateFilter()
 
 	m.Update(tea.KeyMsg{Type: tea.KeyBackspace})
-	if m.search.Query != "a" {
-		t.Errorf("searchQuery = %q, want %q", m.search.Query, "a")
+	if m.search.query != "a" {
+		t.Errorf("searchQuery = %q, want %q", m.search.query, "a")
 	}
 
 	m.Update(tea.KeyMsg{Type: tea.KeyBackspace})
-	if m.search.Query != "" {
-		t.Errorf("searchQuery = %q, want empty", m.search.Query)
+	if m.search.query != "" {
+		t.Errorf("searchQuery = %q, want empty", m.search.query)
 	}
 
 	// One more backspace on empty query should deactivate search.
 	m.Update(tea.KeyMsg{Type: tea.KeyBackspace})
-	if m.search.Active {
+	if m.search.active {
 		t.Error("search should deactivate after backspace on empty query")
 	}
 }
@@ -1208,7 +1208,7 @@ func TestE2E_Search_ActivateWithS(t *testing.T) {
 	m := newTestModel(config.Host{Name: "a", Username: "u", Host: "h", Port: 22})
 
 	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
-	if !m.search.Active {
+	if !m.search.active {
 		t.Error("s should activate search")
 	}
 }

@@ -13,18 +13,18 @@ import (
 func TestSearch_SlashKey_ActivatesSearch(t *testing.T) {
 	m := newTestModel(testHostDev)
 	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
-	if !m.search.Active {
+	if !m.search.active {
 		t.Error("'/ should activate search")
 	}
-	if m.search.Query != "" {
-		t.Errorf("searchQuery = %q, want empty on activation", m.search.Query)
+	if m.search.query != "" {
+		t.Errorf("searchQuery = %q, want empty on activation", m.search.query)
 	}
 }
 
 func TestSearch_SKey_ActivatesSearch(t *testing.T) {
 	m := newTestModel(testHostDev)
 	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'s'}})
-	if !m.search.Active {
+	if !m.search.active {
 		t.Error("'s' should activate search")
 	}
 }
@@ -33,10 +33,10 @@ func TestSearch_Esc_DeactivatesSearch(t *testing.T) {
 	m := newTestModel(testHostDev)
 	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
 	m.Update(tea.KeyMsg{Type: tea.KeyEsc})
-	if m.search.Active {
+	if m.search.active {
 		t.Error("esc should deactivate search")
 	}
-	if m.search.Query != "" {
+	if m.search.query != "" {
 		t.Error("esc should clear search query")
 	}
 }
@@ -45,7 +45,7 @@ func TestSearch_BackspaceOnEmpty_Deactivates(t *testing.T) {
 	m := newTestModel(testHostDev)
 	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
 	m.Update(tea.KeyMsg{Type: tea.KeyBackspace})
-	if m.search.Active {
+	if m.search.active {
 		t.Error("backspace on empty query should deactivate search")
 	}
 }
@@ -58,8 +58,8 @@ func TestSearch_TypeChars_AppendsToQuery(t *testing.T) {
 	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
 	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
 	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'o'}})
-	if m.search.Query != "pro" {
-		t.Errorf("searchQuery = %q, want %q", m.search.Query, "pro")
+	if m.search.query != "pro" {
+		t.Errorf("searchQuery = %q, want %q", m.search.query, "pro")
 	}
 }
 
@@ -69,8 +69,8 @@ func TestSearch_Backspace_RemovesLastChar(t *testing.T) {
 	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'p'}})
 	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
 	m.Update(tea.KeyMsg{Type: tea.KeyBackspace})
-	if m.search.Query != "p" {
-		t.Errorf("searchQuery = %q, want %q", m.search.Query, "p")
+	if m.search.query != "p" {
+		t.Errorf("searchQuery = %q, want %q", m.search.query, "p")
 	}
 }
 
@@ -88,8 +88,8 @@ func TestSearch_FiltersResults(t *testing.T) {
 	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'r'}})
 	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'o'}})
 
-	if len(m.search.Filtered) != 2 {
-		t.Errorf("len(filtered) = %d, want 2 (production-api, prod)", len(m.search.Filtered))
+	if len(m.search.filtered) != 2 {
+		t.Errorf("len(filtered) = %d, want 2 (production-api, prod)", len(m.search.filtered))
 	}
 }
 
@@ -100,8 +100,8 @@ func TestSearch_NoMatches(t *testing.T) {
 	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'z'}})
 	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'z'}})
 
-	if len(m.search.Filtered) != 0 {
-		t.Errorf("len(filtered) = %d, want 0 for no match", len(m.search.Filtered))
+	if len(m.search.filtered) != 0 {
+		t.Errorf("len(filtered) = %d, want 0 for no match", len(m.search.filtered))
 	}
 }
 
@@ -141,7 +141,7 @@ func TestSearch_EnterSelectsFilteredHost(t *testing.T) {
 	if cmd == nil {
 		t.Error("enter on filtered host should trigger connect")
 	}
-	if m.search.Active {
+	if m.search.active {
 		t.Error("search should deactivate after selecting")
 	}
 }
@@ -186,7 +186,7 @@ func TestSearch_Deactivated_RestoresFullList(t *testing.T) {
 	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'z'}})
 	m.Update(tea.KeyMsg{Type: tea.KeyEsc})
 
-	if m.search.Active {
+	if m.search.active {
 		t.Error("search should be deactivated")
 	}
 	visible := m.visibleHosts()
@@ -200,7 +200,7 @@ func TestSearch_Deactivated_RestoresFullList(t *testing.T) {
 func TestView_SearchBarShown(t *testing.T) {
 	m := newTestModel(testHostDev)
 	m.activateSearch()
-	m.search.Query = "pro"
+	m.search.query = "pro"
 	view := m.View()
 
 	if !strings.Contains(view, "/>") {
@@ -214,7 +214,7 @@ func TestView_SearchBarShown(t *testing.T) {
 func TestView_SearchNoMatches(t *testing.T) {
 	m := newTestModel(testHostDev)
 	m.activateSearch()
-	m.search.Query = "zzz"
+	m.search.query = "zzz"
 	m.updateFilter()
 	view := m.View()
 
@@ -243,7 +243,7 @@ func TestView_SearchShowsFilteredHosts(t *testing.T) {
 	}
 	m := newTestModel(hosts...)
 	m.activateSearch()
-	m.search.Query = "pro"
+	m.search.query = "pro"
 	m.updateFilter()
 	view := m.View()
 
@@ -282,7 +282,7 @@ func TestSearch_NumberOutOfRange_AppendsToQuery(t *testing.T) {
 	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
 	// 9 is out of range (only 1 host), should append to query
 	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'9'}})
-	if m.search.Query != "9" {
-		t.Errorf("searchQuery = %q, want %q (number out of range should append)", m.search.Query, "9")
+	if m.search.query != "9" {
+		t.Errorf("searchQuery = %q, want %q (number out of range should append)", m.search.query, "9")
 	}
 }
