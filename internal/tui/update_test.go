@@ -16,11 +16,11 @@ func TestShowAddScreen_SetsState(t *testing.T) {
 	if m.screen != screenAddHost {
 		t.Errorf("screen = %d, want screenAddHost", m.screen)
 	}
-	if m.hostForm == nil {
+	if m.formModel.hostForm == nil {
 		t.Error("hostForm should not be nil")
 	}
-	if m.hostForm.Port != testPort22 {
-		t.Errorf("default Port = %q, want %q", m.hostForm.Port, testPort22)
+	if m.formModel.hostForm.Port != testPort22 {
+		t.Errorf("default Port = %q, want %q", m.formModel.hostForm.Port, testPort22)
 	}
 }
 
@@ -33,11 +33,11 @@ func TestShowEditScreen_PrefillsForm(t *testing.T) {
 	if m.editIndex != 0 {
 		t.Errorf("editIndex = %d, want 0", m.editIndex)
 	}
-	if m.hostForm.Name != testHostPort.Name {
-		t.Errorf("Name = %q, want %q", m.hostForm.Name, testHostPort.Name)
+	if m.formModel.hostForm.Name != testHostPort.Name {
+		t.Errorf("Name = %q, want %q", m.formModel.hostForm.Name, testHostPort.Name)
 	}
-	if m.hostForm.Port != "2222" {
-		t.Errorf("Port = %q, want %q", m.hostForm.Port, "2222")
+	if m.formModel.hostForm.Port != "2222" {
+		t.Errorf("Port = %q, want %q", m.formModel.hostForm.Port, "2222")
 	}
 }
 

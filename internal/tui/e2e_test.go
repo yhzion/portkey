@@ -138,7 +138,7 @@ func fillAddForm(t *testing.T, m *model, name, username, host, port string) {
 	typeString(m, host)
 	pressEnter(t, m)
 	// Clear the default port value ("22") before typing the new one.
-	portLen := len(m.hostForm.Port)
+	portLen := len(m.formModel.hostForm.Port)
 	for i := 0; i < portLen; i++ {
 		m.Update(tea.KeyMsg{Type: tea.KeyBackspace})
 	}
@@ -284,11 +284,11 @@ func TestE2E_FormNav_EnterAdvancesToNextField(t *testing.T) {
 
 	// If navigation worked, hostForm.Name="myserver" and hostForm.Username="alice".
 	// If broken (everything stays on Name), Name="myserveralice" and Username="".
-	if m.hostForm.Name != "myserver" {
-		t.Errorf("Name = %q, want %q", m.hostForm.Name, "myserver")
+	if m.formModel.hostForm.Name != "myserver" {
+		t.Errorf("Name = %q, want %q", m.formModel.hostForm.Name, "myserver")
 	}
-	if m.hostForm.Username != "alice" {
-		t.Errorf("Username = %q, want %q — Enter did not advance field", m.hostForm.Username, "alice")
+	if m.formModel.hostForm.Username != "alice" {
+		t.Errorf("Username = %q, want %q — Enter did not advance field", m.formModel.hostForm.Username, "alice")
 	}
 }
 
@@ -300,11 +300,11 @@ func TestE2E_FormNav_TabAdvancesToNextField(t *testing.T) {
 	pressTab(t, m)
 	typeString(m, "alice")
 
-	if m.hostForm.Name != "myserver" {
-		t.Errorf("Name = %q, want %q", m.hostForm.Name, "myserver")
+	if m.formModel.hostForm.Name != "myserver" {
+		t.Errorf("Name = %q, want %q", m.formModel.hostForm.Name, "myserver")
 	}
-	if m.hostForm.Username != "alice" {
-		t.Errorf("Username = %q, want %q — Tab did not advance field", m.hostForm.Username, "alice")
+	if m.formModel.hostForm.Username != "alice" {
+		t.Errorf("Username = %q, want %q — Tab did not advance field", m.formModel.hostForm.Username, "alice")
 	}
 }
 
@@ -321,11 +321,11 @@ func TestE2E_FormNav_ShiftTabGoesBack(t *testing.T) {
 
 	// Type more — should append to Name, not Username.
 	typeString(m, "2")
-	if m.hostForm.Name != "srv2" {
-		t.Errorf("Name = %q, want %q after Shift+Tab back", m.hostForm.Name, "srv2")
+	if m.formModel.hostForm.Name != "srv2" {
+		t.Errorf("Name = %q, want %q after Shift+Tab back", m.formModel.hostForm.Name, "srv2")
 	}
-	if m.hostForm.Username != "" {
-		t.Errorf("Username = %q, want empty (should still be on Name)", m.hostForm.Username)
+	if m.formModel.hostForm.Username != "" {
+		t.Errorf("Username = %q, want empty (should still be on Name)", m.formModel.hostForm.Username)
 	}
 }
 
@@ -340,23 +340,23 @@ func TestE2E_FormNav_WalkAllFieldsForward(t *testing.T) {
 	typeString(m, "10.0.0.1")
 	pressEnter(t, m)
 	// Clear default "22" and type custom port.
-	portLen := len(m.hostForm.Port)
+	portLen := len(m.formModel.hostForm.Port)
 	for i := 0; i < portLen; i++ {
 		m.Update(tea.KeyMsg{Type: tea.KeyBackspace})
 	}
 	typeString(m, "2222")
 
-	if m.hostForm.Name != "srv" {
-		t.Errorf("Name = %q, want %q", m.hostForm.Name, "srv")
+	if m.formModel.hostForm.Name != "srv" {
+		t.Errorf("Name = %q, want %q", m.formModel.hostForm.Name, "srv")
 	}
-	if m.hostForm.Username != "alice" {
-		t.Errorf("Username = %q, want %q", m.hostForm.Username, "alice")
+	if m.formModel.hostForm.Username != "alice" {
+		t.Errorf("Username = %q, want %q", m.formModel.hostForm.Username, "alice")
 	}
-	if m.hostForm.Host != "10.0.0.1" {
-		t.Errorf("Host = %q, want %q", m.hostForm.Host, "10.0.0.1")
+	if m.formModel.hostForm.Host != "10.0.0.1" {
+		t.Errorf("Host = %q, want %q", m.formModel.hostForm.Host, "10.0.0.1")
 	}
-	if m.hostForm.Port != "2222" {
-		t.Errorf("Port = %q, want %q", m.hostForm.Port, "2222")
+	if m.formModel.hostForm.Port != "2222" {
+		t.Errorf("Port = %q, want %q", m.formModel.hostForm.Port, "2222")
 	}
 }
 
@@ -390,11 +390,11 @@ func TestE2E_Validation_InvalidNameBlocksAdvance(t *testing.T) {
 	// Name validation should fail, so we're still on the Name field.
 	// Type more to verify we're still here.
 	typeString(m, "2")
-	if m.hostForm.Name != "MyServer2" {
-		t.Errorf("Name = %q, want %q — field did not block on invalid name", m.hostForm.Name, "MyServer2")
+	if m.formModel.hostForm.Name != "MyServer2" {
+		t.Errorf("Name = %q, want %q — field did not block on invalid name", m.formModel.hostForm.Name, "MyServer2")
 	}
-	if m.hostForm.Username != "" {
-		t.Errorf("Username = %q, want empty — validation should have blocked advance", m.hostForm.Username)
+	if m.formModel.hostForm.Username != "" {
+		t.Errorf("Username = %q, want empty — validation should have blocked advance", m.formModel.hostForm.Username)
 	}
 }
 
@@ -407,8 +407,8 @@ func TestE2E_Validation_EmptyNameBlocksAdvance(t *testing.T) {
 
 	// Should still be on Name (validation: name is required).
 	typeString(m, "srv")
-	if m.hostForm.Name != "srv" {
-		t.Errorf("Name = %q, want %q — empty name should block advance", m.hostForm.Name, "srv")
+	if m.formModel.hostForm.Name != "srv" {
+		t.Errorf("Name = %q, want %q — empty name should block advance", m.formModel.hostForm.Name, "srv")
 	}
 }
 
@@ -424,8 +424,8 @@ func TestE2E_Validation_EmptyUsernameBlocksAdvance(t *testing.T) {
 
 	// Should still be on Username.
 	typeString(m, "alice")
-	if m.hostForm.Username != "alice" {
-		t.Errorf("Username = %q, want %q — empty username should block advance", m.hostForm.Username, "alice")
+	if m.formModel.hostForm.Username != "alice" {
+		t.Errorf("Username = %q, want %q — empty username should block advance", m.formModel.hostForm.Username, "alice")
 	}
 }
 
@@ -443,8 +443,8 @@ func TestE2E_Validation_EmptyHostBlocksAdvance(t *testing.T) {
 
 	// Should still be on Host.
 	typeString(m, "10.0.0.1")
-	if m.hostForm.Host != "10.0.0.1" {
-		t.Errorf("Host = %q, want %q — empty host should block advance", m.hostForm.Host, "10.0.0.1")
+	if m.formModel.hostForm.Host != "10.0.0.1" {
+		t.Errorf("Host = %q, want %q — empty host should block advance", m.formModel.hostForm.Host, "10.0.0.1")
 	}
 }
 
@@ -575,8 +575,8 @@ func TestE2E_Validation_NameWithDisallowedChars(t *testing.T) {
 			pressEnter(t, m)
 
 			// Should still be on Name field.
-			if m.hostForm.Username != "" {
-				t.Errorf("Username = %q, want empty — name %q should be invalid", m.hostForm.Username, tc.input)
+			if m.formModel.hostForm.Username != "" {
+				t.Errorf("Username = %q, want empty — name %q should be invalid", m.formModel.hostForm.Username, tc.input)
 			}
 		})
 	}
@@ -591,15 +591,15 @@ func TestE2E_EditHost_FullFlow(t *testing.T) {
 	showEditForm(t, m, 0)
 
 	// Clear existing name and type new one.
-	clearField(m, len(m.hostForm.Name))
+	clearField(m, len(m.formModel.hostForm.Name))
 	typeString(m, "staging")
 	pressEnter(t, m)
 
-	clearField(m, len(m.hostForm.Username))
+	clearField(m, len(m.formModel.hostForm.Username))
 	typeString(m, "new")
 	pressEnter(t, m)
 
-	clearField(m, len(m.hostForm.Host))
+	clearField(m, len(m.formModel.hostForm.Host))
 	typeString(m, "new.local")
 	pressEnter(t, m)
 
@@ -644,17 +644,17 @@ func TestE2E_EditHost_PrefilledValues(t *testing.T) {
 	m := newTestModel(original)
 	showEditForm(t, m, 0)
 
-	if m.hostForm.Name != "staging" {
-		t.Errorf("hostForm.Name = %q, want %q", m.hostForm.Name, "staging")
+	if m.formModel.hostForm.Name != "staging" {
+		t.Errorf("hostForm.Name = %q, want %q", m.formModel.hostForm.Name, "staging")
 	}
-	if m.hostForm.Username != "deploy" {
-		t.Errorf("hostForm.Username = %q, want %q", m.hostForm.Username, "deploy")
+	if m.formModel.hostForm.Username != "deploy" {
+		t.Errorf("hostForm.Username = %q, want %q", m.formModel.hostForm.Username, "deploy")
 	}
-	if m.hostForm.Host != "stage.local" {
-		t.Errorf("hostForm.Host = %q, want %q", m.hostForm.Host, "stage.local")
+	if m.formModel.hostForm.Host != "stage.local" {
+		t.Errorf("hostForm.Host = %q, want %q", m.formModel.hostForm.Host, "stage.local")
 	}
-	if m.hostForm.Port != "2222" {
-		t.Errorf("hostForm.Port = %q, want %q", m.hostForm.Port, "2222")
+	if m.formModel.hostForm.Port != "2222" {
+		t.Errorf("hostForm.Port = %q, want %q", m.formModel.hostForm.Port, "2222")
 	}
 }
 
@@ -1376,7 +1376,7 @@ func TestE2E_Lifecycle_AddConnectEditDelete(t *testing.T) {
 
 	// Keep name, change username, keep host, keep port.
 	pressEnter(t, m) // advance past Name
-	clearField(m, len(m.hostForm.Username))
+	clearField(m, len(m.formModel.hostForm.Username))
 	typeString(m, "bob")
 	pressEnter(t, m)    // advance past Username
 	pressEnter(t, m)    // advance past Host
@@ -1425,11 +1425,11 @@ func TestE2E_MultiHost_NavigateAndOperate(t *testing.T) {
 		t.Fatalf("screen = %d, want screenEditHost", m.screen)
 	}
 	// Verify pre-filled.
-	if m.hostForm.Name != "beta" {
-		t.Errorf("prefilled Name = %q, want %q", m.hostForm.Name, "beta")
+	if m.formModel.hostForm.Name != "beta" {
+		t.Errorf("prefilled Name = %q, want %q", m.formModel.hostForm.Name, "beta")
 	}
-	if m.hostForm.Username != "bob" {
-		t.Errorf("prefilled Username = %q, want %q", m.hostForm.Username, "bob")
+	if m.formModel.hostForm.Username != "bob" {
+		t.Errorf("prefilled Username = %q, want %q", m.formModel.hostForm.Username, "bob")
 	}
 
 	// Cancel edit.
