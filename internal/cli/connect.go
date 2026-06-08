@@ -4,8 +4,6 @@ import (
 	"flag"
 	"fmt"
 	"os"
-
-	"github.com/yhzion/portkey/internal/ssh"
 )
 
 var connectCmd = &Command{
@@ -50,7 +48,7 @@ var connectCmd = &Command{
 			h.Port = port
 		}
 
-		if err := ssh.Run(h); err != nil {
+		if err := defaultSSHRunner.Run(h); err != nil {
 			fmt.Fprintf(os.Stderr, "SSH error: %v\n", err)
 			return ExitRuntime
 		}
