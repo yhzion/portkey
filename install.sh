@@ -95,7 +95,7 @@ get_latest_version() {
 
   # Extract tag_name (e.g. "v0.1.1") — works with grep + sed, no jq needed
   local tag
-  tag="$(grep '"tag_name"' "$tmp" | head -1 | sed -E 's/.*"tag_name":\s*"([^"]+)".*/\1/')"
+  tag="$(grep '"tag_name"' "$tmp" | head -1 | sed -E 's/.*"tag_name": "([^"]+)".*/\1/')"
   rm -f "$tmp"
 
   if [ -z "$tag" ]; then
