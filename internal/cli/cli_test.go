@@ -497,7 +497,26 @@ func TestDispatchUpdateHelp(t *testing.T) {
 }
 
 func TestDispatchUpdateAlreadyUpToDate(t *testing.T) {
-	code := cli.Dispatch([]string{"portkey", "update"}, "v99.0.0", "", nil)
+	// Use a mock server to avoid real GitHub API calls (flaky on CI due to rate limiting).
+	mux := http.NewServeMux()
+	mux.HandleFunc("/repos/yhzion/portkey/releases/latest", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		fmt.Fprint(w, `{
+			"tag_name": "v0.0.1",
+			"assets": []
+		}`)
+	})
+	server := httptest.NewServer(mux)
+	defer server.Close()
+
+	upd := &updater.Client{
+		HTTP:    server.Client(),
+		Owner:   "yhzion",
+		Repo:    "portkey",
+		BaseURL: server.URL,
+	}
+
+	code := cli.Dispatch([]string{"portkey", "update"}, "v99.0.0", "", upd)
 	if code != 0 {
 		t.Errorf("update up-to-date = %d, want 0", code)
 	}
