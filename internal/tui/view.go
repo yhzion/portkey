@@ -37,20 +37,20 @@ func (m *model) renderHostList() string {
 	b.WriteString("\n\n")
 
 	// Search bar.
-	if m.searchActive {
-		b.WriteString(searchBarStyle.Render("/> " + m.searchQuery + "█"))
+	if m.search.Active {
+		b.WriteString(searchBarStyle.Render("/> " + m.search.Query + "█"))
 		b.WriteString("\n\n")
 	}
 
 	// Use filtered hosts when search is active.
 	var visible []int
 	var matchMap map[int]*MatchResult // for highlight positions
-	if m.searchActive {
-		visible = make([]int, len(m.filtered))
-		matchMap = make(map[int]*MatchResult, len(m.filtered))
-		for i := range m.filtered {
-			visible[i] = m.filtered[i].HostIndex
-			matchMap[m.filtered[i].HostIndex] = &m.filtered[i]
+	if m.search.Active {
+		visible = make([]int, len(m.search.Filtered))
+		matchMap = make(map[int]*MatchResult, len(m.search.Filtered))
+		for i := range m.search.Filtered {
+			visible[i] = m.search.Filtered[i].HostIndex
+			matchMap[m.search.Filtered[i].HostIndex] = &m.search.Filtered[i]
 		}
 	} else {
 		visible = make([]int, len(m.config.Hosts))
@@ -69,7 +69,7 @@ func (m *model) renderHostList() string {
 	}
 
 	// Empty search results.
-	if m.searchActive && len(visible) == 0 {
+	if m.search.Active && len(visible) == 0 {
 		b.WriteString(dimStyle.Render("No matches found."))
 		b.WriteString("\n\n")
 		b.WriteString(helpStyle.Render("esc clear search · backspace delete · q quit"))
@@ -80,7 +80,7 @@ func (m *model) renderHostList() string {
 		host := m.config.Hosts[hostIdx]
 		selected := displayIdx == m.selected
 		var positions []int
-		if m.searchActive && matchMap != nil {
+		if m.search.Active && matchMap != nil {
 			if mr, ok := matchMap[hostIdx]; ok {
 				positions = mr.Positions
 			}
@@ -91,7 +91,7 @@ func (m *model) renderHostList() string {
 	b.WriteString(m.renderAddItem(m.selected == len(visible)))
 
 	b.WriteString("\n")
-	if m.searchActive {
+	if m.search.Active {
 		b.WriteString(
 			helpStyle.Render(
 				"type to filter · ↑/↓ move · enter/space select · 1-9 quick · esc clear · q quit",
