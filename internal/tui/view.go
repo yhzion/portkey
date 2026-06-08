@@ -43,21 +43,14 @@ func (m *model) renderHostList() string {
 	}
 
 	// Use filtered hosts when search is active.
-	var visible []int
-	var matchMap map[int]*MatchResult // for highlight positions
-	if m.search.Active {
-		visible = make([]int, len(m.search.Filtered))
-		matchMap = make(map[int]*MatchResult, len(m.search.Filtered))
-		for i := range m.search.Filtered {
-			visible[i] = m.search.Filtered[i].HostIndex
-			matchMap[m.search.Filtered[i].HostIndex] = &m.search.Filtered[i]
-		}
-	} else {
+	visible := m.search.Indices()
+	if visible == nil {
 		visible = make([]int, len(m.config.Hosts))
 		for i := range m.config.Hosts {
 			visible[i] = i
 		}
 	}
+	matchMap := m.search.MatchMap() // for highlight positions
 
 	if len(m.config.Hosts) == 0 {
 		b.WriteString(m.renderAddItem(true))
@@ -80,7 +73,7 @@ func (m *model) renderHostList() string {
 		host := m.config.Hosts[hostIdx]
 		selected := displayIdx == m.selected
 		var positions []int
-		if m.search.Active && matchMap != nil {
+		if matchMap != nil {
 			if mr, ok := matchMap[hostIdx]; ok {
 				positions = mr.Positions
 			}

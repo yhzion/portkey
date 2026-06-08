@@ -86,6 +86,34 @@ func (s *SearchModel) UpdateFilter(hosts []config.Host) {
 	s.Filtered = FuzzyMatch(hosts, s.Query)
 }
 
+// Indices returns the host indices in display order for the current filter.
+// Returns nil when search is inactive.
+func (s *SearchModel) Indices() []int {
+	if !s.Active {
+		return nil
+	}
+	indices := make([]int, len(s.Filtered))
+	for i, r := range s.Filtered {
+		indices[i] = r.HostIndex
+	}
+	return indices
+}
+
+// MatchMap returns a map from host index to its match result, used for
+// highlight positions in the rendered host list. Returns nil when search
+// is inactive. Map values point into s.Filtered and are valid as long as
+// the slice is not reallocated.
+func (s *SearchModel) MatchMap() map[int]*MatchResult {
+	if !s.Active {
+		return nil
+	}
+	m := make(map[int]*MatchResult, len(s.Filtered))
+	for i := range s.Filtered {
+		m[s.Filtered[i].HostIndex] = &s.Filtered[i]
+	}
+	return m
+}
+
 type model struct {
 	screen        screen
 	config        *config.Config
@@ -332,11 +360,7 @@ func (m *model) connectHost(index int) tea.Cmd {
 // visibleHosts returns the host indices to display.
 // When search is active, returns filtered results; otherwise all hosts.
 func (m *model) visibleHosts() []int {
-	if m.search.Active {
-		indices := make([]int, len(m.search.Filtered))
-		for i, r := range m.search.Filtered {
-			indices[i] = r.HostIndex
-		}
+	if indices := m.search.Indices(); indices != nil {
 		return indices
 	}
 	indices := make([]int, len(m.config.Hosts))
