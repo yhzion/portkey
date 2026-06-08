@@ -133,3 +133,30 @@ setup() {
     [ "$status" -eq 0 ]
     [[ "$output" =~ "brew" ]]
 }
+
+# ---------------------------------------------------------------------------
+# get_latest_version (regression: BSD vs GNU sed — see issue #39)
+# ---------------------------------------------------------------------------
+# Hermetic: stub download() to copy a fixture GitHub-API response instead of
+# hitting the network. Runs on whatever sed the host ships, so the macOS
+# (BSD sed) vs Ubuntu (GNU sed) difference is exercised by the CI matrix.
+
+@test "get_latest_version extracts the tag from a GitHub release response" {
+    # shellcheck disable=SC2317  # invoked indirectly by get_latest_version
+    download() { cp "$(dirname "$BATS_TEST_FILENAME")/fixtures/release.json" "$2"; }
+    run get_latest_version
+    [ "$status" -eq 0 ]
+    # The old GNU-only `\s` expression returned the whole JSON line on BSD sed.
+    # Asserting the exact tag catches that regression.
+    [ "$output" = "v0.3.13" ]
+}
+
+@test "get_latest_version output has no spaces or quotes (would break the URL)" {
+    # shellcheck disable=SC2317  # invoked indirectly by get_latest_version
+    download() { cp "$(dirname "$BATS_TEST_FILENAME")/fixtures/release.json" "$2"; }
+    run get_latest_version
+    [ "$status" -eq 0 ]
+    # A mangled version interpolated into the download URL is what produced
+    # `curl: (3) URL rejected: Malformed input to a URL function`.
+    [[ ! "$output" =~ [[:space:]\"] ]]
+}
