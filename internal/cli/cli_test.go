@@ -2,6 +2,7 @@ package cli_test
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -551,5 +552,24 @@ func TestDispatchUpdateNewerAvailable(t *testing.T) {
 	// Will fail because no assets, but should get past the version check
 	if code != 1 {
 		t.Errorf("update with no assets = %d, want 1 (runtime error)", code)
+	}
+}
+
+// --- help-flag synchronization ---
+
+func TestCommandHelpContainsAllFlags(t *testing.T) {
+	for _, cmd := range cli.Commands {
+		if cmd.Flags == nil {
+			continue
+		}
+		fs := flag.NewFlagSet(cmd.Name, flag.ContinueOnError)
+		cmd.Flags(fs)
+		help := cmd.Help()
+
+		fs.VisitAll(func(f *flag.Flag) {
+			if !strings.Contains(help, "--"+f.Name) {
+				t.Errorf("%s: help missing flag --%s", cmd.Name, f.Name)
+			}
+		})
 	}
 }
