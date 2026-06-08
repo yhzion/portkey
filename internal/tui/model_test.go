@@ -22,15 +22,19 @@ var (
 	testHostPort = config.Host{Name: "staging", Username: "u", Host: "h", Port: 2222}
 )
 
+// mockStore is a no-op Store for tests.
+type mockStore struct{}
+
+func (mockStore) Load() (*config.Config, error) { return nil, nil }
+func (mockStore) Save(_ *config.Config) error   { return nil }
+
 func newBaseForm() *hostForm {
 	return &hostForm{Username: testUsername, Host: testHost, Port: testPort22}
 }
 
 func newTestModel(hosts ...config.Host) *model {
 	cfg := &config.Config{Hosts: hosts}
-	m := InitialModel(cfg, "v0.1.0", nil).(*model)
-	m.saveFunc = func(_ *config.Config) error { return nil }
-	return m
+	return InitialModel(cfg, "v0.1.0", nil, mockStore{}).(*model)
 }
 
 func TestHostForm_ToHost_DefaultPort(t *testing.T) {
@@ -103,7 +107,7 @@ func TestHostForm_ToHost_NameSet(t *testing.T) {
 
 func TestInitialModel_SetsDefaults(t *testing.T) {
 	cfg := &config.Config{Hosts: []config.Host{}}
-	m := InitialModel(cfg, "v0.1.0", nil).(*model)
+	m := InitialModel(cfg, "v0.1.0", nil, mockStore{}).(*model)
 
 	if m.screen != screenHostList {
 		t.Errorf("screen = %d, want screenHostList", m.screen)
@@ -118,7 +122,7 @@ func TestInitialModel_SetsDefaults(t *testing.T) {
 
 func TestInitialModel_WithExistingHosts(t *testing.T) {
 	cfg := &config.Config{Hosts: []config.Host{testHostDev, testHostB}}
-	m := InitialModel(cfg, "v0.1.0", nil).(*model)
+	m := InitialModel(cfg, "v0.1.0", nil, mockStore{}).(*model)
 	if len(m.config.Hosts) != 2 {
 		t.Errorf("len(Hosts) = %d, want 2", len(m.config.Hosts))
 	}

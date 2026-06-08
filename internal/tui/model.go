@@ -76,8 +76,8 @@ type model struct {
 	Version       string
 	Updater       *updater.Client
 
-	// saveFunc persists config. Defaults to config.Save; overridden in tests.
-	saveFunc func(*config.Config) error
+	// store persists config. Provided via dependency injection.
+	store config.Store
 
 	// Search/filter state
 	searchActive bool
@@ -147,7 +147,7 @@ func newKeyMap() keyMap {
 	}
 }
 
-func InitialModel(cfg *config.Config, version string, upd *updater.Client) tea.Model {
+func InitialModel(cfg *config.Config, version string, upd *updater.Client, store config.Store) tea.Model {
 	m := &model{
 		screen:   screenHostList,
 		config:   cfg,
@@ -155,7 +155,7 @@ func InitialModel(cfg *config.Config, version string, upd *updater.Client) tea.M
 		keys:     newKeyMap(),
 		Version:  version,
 		Updater:  upd,
-		saveFunc: config.Save,
+		store:    store,
 	}
 	return m
 }
@@ -277,7 +277,7 @@ func (m *model) saveAndGoBack() tea.Cmd {
 	m.screen = screenHostList
 	m.selected = 0
 	return func() tea.Msg {
-		if err := m.saveFunc(m.config); err != nil {
+		if err := m.store.Save(m.config); err != nil {
 			return errMsg{err}
 		}
 		return nil
@@ -292,7 +292,7 @@ func (m *model) confirmDelete() tea.Cmd {
 		m.selected = len(m.config.Hosts)
 	}
 	return func() tea.Msg {
-		if err := m.saveFunc(m.config); err != nil {
+		if err := m.store.Save(m.config); err != nil {
 			return errMsg{err}
 		}
 		return nil
