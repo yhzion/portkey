@@ -7,6 +7,7 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/huh"
 	"github.com/yhzion/portkey/internal/config"
+	"github.com/yhzion/portkey/internal/updater"
 )
 
 type screen int

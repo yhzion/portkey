@@ -21,8 +21,8 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m.handleKey(msg)
 
 	case updateAvailableMsg:
-		m.updateTag = msg.Tag
-		m.latestRelease = msg.Rel
+		m.updateModel.tag = msg.Tag
+		m.updateModel.latestRelease = msg.Rel
 		return m, nil
 
 	case updateCheckFailedMsg:
@@ -106,7 +106,7 @@ func (m *model) handleHostListKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.Quit):
 		return m, tea.Quit
 	case msg.String() == "u":
-		if m.latestRelease != nil {
+		if m.updateModel.latestRelease != nil {
 			m.screen = screenUpdateConfirm
 			return m, nil
 		}
@@ -251,20 +251,7 @@ func (m *model) handleNotificationKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m *model) handleUpdateConfirmKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	if key.Matches(msg, m.keys.Escape) {
-		m.screen = screenHostList
-		return m, nil
-	}
-
-	switch strings.ToLower(msg.String()) {
-	case "y":
-		m.screen = screenHostList
-		return m, func() tea.Msg {
-			return updateDoneMsg{err: nil}
-		}
-	case "n":
-		m.screen = screenHostList
-		return m, nil
-	}
-	return m, nil
+	nextScreen, cmd := m.updateModel.handleConfirmKey(msg, m.keys)
+	m.screen = nextScreen
+	return m, cmd
 }
