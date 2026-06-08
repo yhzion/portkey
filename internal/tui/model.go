@@ -56,6 +56,13 @@ type updateAvailableMsg struct {
 
 type updateCheckFailedMsg struct{}
 
+// UpdateChecker reports the latest available release. Defined in the consumer
+// package so the model can be tested with a fake instead of a live HTTP client.
+// *updater.Client satisfies it.
+type UpdateChecker interface {
+	CheckLatest() (*updater.Release, error)
+}
+
 type updateDoneMsg struct {
 	err error
 }
@@ -176,7 +183,7 @@ type model struct {
 	updateTag     string
 	latestRelease *updater.Release
 	Version       string
-	Updater       *updater.Client
+	Updater       UpdateChecker
 
 	// store persists config. Provided via dependency injection.
 	store config.Store
@@ -250,7 +257,10 @@ func newKeyMap() keyMap {
 	}
 }
 
-func InitialModel(cfg *config.Config, version string, upd *updater.Client, store config.Store) tea.Model {
+func InitialModel(cfg *config.Config, version string, upd UpdateChecker, store config.Store) tea.Model {
+	if client, ok := upd.(*updater.Client); ok && client == nil {
+		upd = nil
+	}
 	m := &model{
 		screen:   screenHostList,
 		config:   cfg,
