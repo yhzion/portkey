@@ -43,13 +43,7 @@ func (m *model) renderHostList() string {
 	}
 
 	// Use filtered hosts when search is active.
-	visible := m.search.Indices()
-	if visible == nil {
-		visible = make([]int, len(m.config.Hosts))
-		for i := range m.config.Hosts {
-			visible[i] = i
-		}
-	}
+	visible := m.visibleHosts()
 	matchMap := m.search.MatchMap() // for highlight positions
 
 	if len(m.config.Hosts) == 0 {
