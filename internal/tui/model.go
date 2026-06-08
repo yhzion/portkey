@@ -19,6 +19,7 @@ const (
 	screenDeleteConfirm
 	screenUpdateConfirm
 	screenError
+	screenNotification
 )
 
 type hostForm struct {

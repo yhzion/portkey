@@ -110,6 +110,23 @@ func TestView_Error(t *testing.T) {
 	}
 }
 
+func TestView_Notification(t *testing.T) {
+	m := newTestModel()
+	m.screen = screenNotification
+	m.errMsg = "Update successful. Please restart portkey."
+	view := m.View()
+
+	if strings.Contains(view, "Error") {
+		t.Error("notification screen should NOT show 'Error' prefix")
+	}
+	if !strings.Contains(view, "Update successful") {
+		t.Error("notification screen should show message")
+	}
+	if !strings.Contains(view, "any key") {
+		t.Error("notification screen should show return hint")
+	}
+}
+
 func TestView_SelectedItemHasCursor(t *testing.T) {
 	m := newTestModel(testHostDev, testHostA)
 	view := m.View()

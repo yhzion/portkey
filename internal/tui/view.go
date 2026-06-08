@@ -22,6 +22,8 @@ func (m *model) View() string {
 		return m.renderUpdateConfirm()
 	case screenError:
 		return m.renderError()
+	case screenNotification:
+		return m.renderNotification()
 	}
 	return ""
 }
@@ -191,6 +193,15 @@ func (m *model) renderError() string {
 	var b strings.Builder
 	b.WriteString("\n")
 	b.WriteString(errorStyle.Render("Error: " + m.errMsg))
+	b.WriteString("\n\n")
+	b.WriteString(dimStyle.Render("Press any key to return to host list."))
+	return b.String()
+}
+
+func (m *model) renderNotification() string {
+	var b strings.Builder
+	b.WriteString("\n")
+	b.WriteString(accentStyle.Render(m.errMsg))
 	b.WriteString("\n\n")
 	b.WriteString(dimStyle.Render("Press any key to return to host list."))
 	return b.String()

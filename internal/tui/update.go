@@ -34,7 +34,7 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.screen = screenError
 		} else {
 			m.errMsg = "Update successful. Please restart portkey."
-			m.screen = screenError
+			m.screen = screenNotification
 		}
 		return m, nil
 
@@ -71,6 +71,8 @@ func (m *model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleUpdateConfirmKey(msg)
 	case screenError:
 		return m.handleErrorKey(msg)
+	case screenNotification:
+		return m.handleNotificationKey(msg)
 	}
 	return m, nil
 }
@@ -239,6 +241,11 @@ func (m *model) handleDeleteConfirmKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m *model) handleErrorKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	m.screen = screenHostList
+	return m, nil
+}
+
+func (m *model) handleNotificationKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	m.screen = screenHostList
 	return m, nil
 }
