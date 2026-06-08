@@ -150,8 +150,9 @@ func (m *model) handleSearchKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		m.deactivateSearch()
 		return m, nil
 	case msg.Type == tea.KeyBackspace:
-		if len(m.search.Query) > 0 {
-			m.search.Query = m.search.Query[:len(m.search.Query)-1]
+		runes := []rune(m.search.Query)
+		if len(runes) > 0 {
+			m.search.Query = string(runes[:len(runes)-1])
 			m.updateFilter()
 		} else {
 			m.deactivateSearch()
