@@ -88,11 +88,12 @@ func (m *model) renderHostList() string {
 			),
 		)
 	} else {
-		b.WriteString(
-			helpStyle.Render(
-				"↑/↓ move · enter/space select · 1-9 quick select · / search · a add · e edit · d delete · u update · q quit",
-			),
-		)
+		helpParts := "↑/↓ move · enter/space select · 1-9 quick select · / search · a add · e edit · d delete"
+		if m.updateModel.tag != "" {
+			helpParts += " · u update"
+		}
+		helpParts += " · q quit"
+		b.WriteString(helpStyle.Render(helpParts))
 	}
 
 	return b.String()
