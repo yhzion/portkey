@@ -151,10 +151,19 @@ verify_checksum() {
 # Behaviour:
 #   minisign present + sig present → verify; die on failure
 #   minisign present + sig absent  → warn + continue
-#   minisign absent                → warn + continue
+#   minisign absent (Termux)       → auto-install via pkg, then verify
+#   minisign absent (other)        → warn + continue
 verify_signature() {
   local checksums_file="$1"
   local sig_file="$2"
+
+  # On Termux, minisign ships as a pkg package; auto-install it so releases are
+  # actually verified rather than silently trusted. Best-effort: fall through to
+  # the warning if the install fails.
+  if ! command -v minisign >/dev/null 2>&1 && is_termux && command -v pkg >/dev/null 2>&1; then
+    info "minisign not found — installing via pkg for signature verification..."
+    pkg install -y minisign >/dev/null 2>&1 || true
+  fi
 
   if command -v minisign >/dev/null 2>&1; then
     if [ -s "$sig_file" ]; then
