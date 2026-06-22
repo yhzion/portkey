@@ -59,8 +59,14 @@ func (c *Client) DownloadAndInstall(rel *Release) error {
 }
 
 // downloadBytes fetches a URL and returns the full response body.
+// It uses c.DownloadHTTP (no fixed timeout) so multi-MB binary downloads are
+// not cut off by the short check-client timeout.
 func (c *Client) downloadBytes(url string) ([]byte, error) {
-	resp, err := c.HTTP.Get(url)
+	dlClient := c.DownloadHTTP
+	if dlClient == nil {
+		dlClient = c.HTTP
+	}
+	resp, err := dlClient.Get(url)
 	if err != nil {
 		return nil, fmt.Errorf("fetch: %w", err)
 	}
@@ -95,7 +101,11 @@ func (c *Client) verifyChecksum(assets []Asset, name string, data []byte) error 
 		return fmt.Errorf("checksums.txt not found in release")
 	}
 
-	resp, err := c.HTTP.Get(checksumURL)
+	dlClient := c.DownloadHTTP
+	if dlClient == nil {
+		dlClient = c.HTTP
+	}
+	resp, err := dlClient.Get(checksumURL)
 	if err != nil {
 		return fmt.Errorf("fetch checksums: %w", err)
 	}

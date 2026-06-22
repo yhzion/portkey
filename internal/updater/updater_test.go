@@ -1,6 +1,7 @@
 package updater
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/http"
@@ -141,7 +142,7 @@ func TestCheckLatestSendsUserAgent(t *testing.T) {
 	defer srv.Close()
 
 	c := &Client{HTTP: srv.Client(), Owner: "o", Repo: "r", BaseURL: srv.URL}
-	if _, err := c.CheckLatest(); err != nil {
+	if _, err := c.CheckLatest(context.Background()); err != nil {
 		t.Fatalf("CheckLatest() error = %v", err)
 	}
 	if gotUA == "" {
@@ -158,7 +159,7 @@ func TestCheckLatestRateLimitedOn429(t *testing.T) {
 	defer srv.Close()
 
 	c := &Client{HTTP: srv.Client(), Owner: "o", Repo: "r", BaseURL: srv.URL}
-	_, err := c.CheckLatest()
+	_, err := c.CheckLatest(context.Background())
 	if err == nil {
 		t.Fatal("CheckLatest() error = nil, want rate limited")
 	}
@@ -187,14 +188,14 @@ func TestClassifyCheckError(t *testing.T) {
 			if tt.status == 0 {
 				// Simulate a transport/offline error by connecting to a closed server.
 				c := &Client{HTTP: http.DefaultClient, Owner: "o", Repo: "r", BaseURL: "http://127.0.0.1:0"}
-				_, err = c.CheckLatest()
+				_, err = c.CheckLatest(context.Background())
 			} else {
 				srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					w.WriteHeader(tt.status)
 				}))
 				defer srv.Close()
 				c := &Client{HTTP: srv.Client(), Owner: "o", Repo: "r", BaseURL: srv.URL}
-				_, err = c.CheckLatest()
+				_, err = c.CheckLatest(context.Background())
 			}
 			if err == nil {
 				t.Fatal("expected error, got nil")
@@ -223,7 +224,7 @@ func TestCheckLatest_404_NotFound(t *testing.T) {
 	defer srv.Close()
 
 	c := &Client{HTTP: srv.Client(), Owner: "o", Repo: "r", BaseURL: srv.URL}
-	_, err := c.CheckLatest()
+	_, err := c.CheckLatest(context.Background())
 	if err == nil {
 		t.Fatal("expected error for 404, got nil")
 	}
@@ -244,14 +245,14 @@ func TestCheckLatest_403_and_429_DistinctMessages(t *testing.T) {
 
 	c403, close403 := makeClient(http.StatusForbidden)
 	defer close403()
-	_, err403 := c403.CheckLatest()
+	_, err403 := c403.CheckLatest(context.Background())
 	if err403 == nil {
 		t.Fatal("expected error for 403")
 	}
 
 	c429, close429 := makeClient(http.StatusTooManyRequests)
 	defer close429()
-	_, err429 := c429.CheckLatest()
+	_, err429 := c429.CheckLatest(context.Background())
 	if err429 == nil {
 		t.Fatal("expected error for 429")
 	}

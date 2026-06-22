@@ -1,6 +1,7 @@
 package updater
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -49,11 +50,16 @@ var (
 
 // ClassifyCheckError inspects err returned by CheckLatest and returns the
 // appropriate CheckErrorKind. It must not be called with a nil error.
+//
+// KindOffline covers both genuine connectivity failures and deadline/timeout
+// errors: a context.DeadlineExceeded wrapped inside *url.Error satisfies
+// net.Error (Timeout() == true), so timed-out checks classify as KindOffline.
 func ClassifyCheckError(err error) CheckErrorKind {
 	if err == nil {
 		return KindUnknown
 	}
 	// Transport / offline errors contain a wrapped net.Error.
+	// This includes context.DeadlineExceeded wrapped by *url.Error.
 	var netErr net.Error
 	if errors.As(err, &netErr) {
 		return KindOffline
@@ -189,7 +195,17 @@ type ghAsset struct {
 
 // Client checks for updates via GitHub releases.
 type Client struct {
-	HTTP    *http.Client
+	// HTTP is used for the short metadata check (CheckLatest). It has a tight
+	// timeout (~10 s) so the TUI startup check doesn't stall the user.
+	HTTP *http.Client
+
+	// DownloadHTTP is used for binary downloads (DownloadAndInstall). It must
+	// NOT share the same tight timeout as HTTP because multi-MB downloads can
+	// legitimately take much longer than 10 s on slow connections. A zero
+	// Timeout means no fixed deadline; per-request context deadlines may still
+	// be applied by the caller.
+	DownloadHTTP *http.Client
+
 	Owner   string
 	Repo    string
 	BaseURL string
@@ -198,20 +214,25 @@ type Client struct {
 // DefaultClient returns a client with sensible defaults.
 func DefaultClient() *Client {
 	return &Client{
-		HTTP:    &http.Client{Timeout: 10 * time.Second},
-		Owner:   defaultOwner,
-		Repo:    defaultRepo,
-		BaseURL: githubAPI,
+		HTTP:         &http.Client{Timeout: 10 * time.Second},
+		DownloadHTTP: &http.Client{}, // no fixed timeout; downloads can take longer
+		Owner:        defaultOwner,
+		Repo:         defaultRepo,
+		BaseURL:      githubAPI,
 	}
 }
 
 // CheckLatest fetches the latest release from GitHub.
-func (c *Client) CheckLatest() (*Release, error) {
+// The provided ctx is attached to the HTTP request so callers can cancel an
+// in-flight check (e.g. when the user quits the TUI). A cancelled or
+// deadline-exceeded context causes CheckLatest to return promptly with the
+// context error wrapped so that ClassifyCheckError still works.
+func (c *Client) CheckLatest(ctx context.Context) (*Release, error) {
 	url := fmt.Sprintf(
 		"%s/repos/%s/%s/releases/latest",
 		c.BaseURL, c.Owner, c.Repo,
 	)
-	req, err := http.NewRequest(http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("build request: %w", err)
 	}

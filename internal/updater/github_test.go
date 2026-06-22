@@ -1,6 +1,7 @@
 package updater
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -28,7 +29,7 @@ func TestCheckLatest_Success(t *testing.T) {
 		BaseURL: srv.URL,
 	}
 
-	rel, err := c.CheckLatest()
+	rel, err := c.CheckLatest(context.Background())
 	if err != nil {
 		t.Fatalf("CheckLatest() error: %v", err)
 	}
@@ -55,7 +56,7 @@ func TestCheckLatest_RateLimited(t *testing.T) {
 		BaseURL: srv.URL,
 	}
 
-	_, err := c.CheckLatest()
+	_, err := c.CheckLatest(context.Background())
 	if err == nil {
 		t.Fatal("expected error for 403, got nil")
 	}
@@ -78,7 +79,7 @@ func TestCheckLatest_ServerError(t *testing.T) {
 		BaseURL: srv.URL,
 	}
 
-	_, err := c.CheckLatest()
+	_, err := c.CheckLatest(context.Background())
 	if err == nil {
 		t.Fatal("expected error for 500, got nil")
 	}
