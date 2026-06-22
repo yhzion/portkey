@@ -156,7 +156,11 @@ func (c *Client) CheckLatest() (*Release, error) {
 		return nil, fmt.Errorf("build request: %w", err)
 	}
 	req.Header.Set("User-Agent", userAgent)
-	resp, err := c.HTTP.Do(req)
+	httpClient := c.HTTP
+	if httpClient == nil {
+		httpClient = http.DefaultClient
+	}
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("fetch latest release: %w", err)
 	}
