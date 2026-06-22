@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"time"
 )
 
 var connectCmd = &Command{
@@ -51,6 +52,14 @@ var connectCmd = &Command{
 		if err := defaultSSHRunner.Run(h); err != nil {
 			fmt.Fprintf(os.Stderr, "SSH error: %v\n", err)
 			return ExitRuntime
+		}
+
+		// Stamp LastUsed so this host bubbles up the recency-sorted list,
+		// mirroring the TUI path. A save failure here is reported but does
+		// not fail the already-successful SSH session.
+		cfg.Hosts[idx].LastUsed = time.Now().Format(time.RFC3339)
+		if err := saveConfig(ctx.ConfigPath, cfg); err != nil {
+			fmt.Fprintf(os.Stderr, "Error saving config: %v\n", err)
 		}
 		return ExitSuccess
 	},
