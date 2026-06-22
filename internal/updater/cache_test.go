@@ -164,6 +164,45 @@ func TestCachingChecker_CorruptCache_FallsBackToLive(t *testing.T) {
 	}
 }
 
+// TestCachingChecker_MissingParentDir verifies that writeToCache creates the
+// parent directory when it does not exist (fresh-install case).
+func TestCachingChecker_MissingParentDir_CacheWritten(t *testing.T) {
+	// Point cachePath at a deeply nested path whose parents do not exist yet.
+	cachePath := filepath.Join(t.TempDir(), "sub", "nested", "update-check.json")
+
+	rel := &Release{Tag: "v1.5.0", Assets: []Asset{{Name: "portkey.tar.gz", URL: "https://example.com/portkey.tar.gz"}}}
+	fake := &fakeChecker{result: rel}
+	cc := NewCachingChecker(fake, cachePath, UpdateCheckTTL)
+
+	// First call: no cache, no parent dir → inner must be called exactly once
+	// and the cache file must be created.
+	got, err := cc.CheckLatest(context.Background())
+	if err != nil {
+		t.Fatalf("first CheckLatest() error = %v", err)
+	}
+	if got.Tag != "v1.5.0" {
+		t.Errorf("Tag = %q, want %q", got.Tag, "v1.5.0")
+	}
+	if fake.calls != 1 {
+		t.Errorf("inner called %d times on first call, want 1", fake.calls)
+	}
+	if _, err := os.Stat(cachePath); err != nil {
+		t.Errorf("cache file not written after missing-parent-dir: %v", err)
+	}
+
+	// Second call within TTL: must serve from cache, inner count stays at 1.
+	got2, err := cc.CheckLatest(context.Background())
+	if err != nil {
+		t.Fatalf("second CheckLatest() error = %v", err)
+	}
+	if got2.Tag != "v1.5.0" {
+		t.Errorf("second Tag = %q, want %q", got2.Tag, "v1.5.0")
+	}
+	if fake.calls != 1 {
+		t.Errorf("inner called %d times after cache write, want 1 (cache hit expected)", fake.calls)
+	}
+}
+
 func TestCachingChecker_CacheHit_FullReleaseData(t *testing.T) {
 	dir := t.TempDir()
 	cachePath := filepath.Join(dir, "update-check.json")

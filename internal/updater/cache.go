@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"os"
+	"path/filepath"
 	"time"
 )
 
@@ -99,6 +100,11 @@ func (c *CachingChecker) writeToCache(rel *Release) {
 	entry := cacheEntry{Release: rel, CheckedAt: time.Now()}
 	data, err := json.Marshal(entry)
 	if err != nil {
+		return // best-effort cache IO (see type-level comment)
+	}
+	// Ensure the parent directory exists (e.g. on a fresh install before any
+	// other code path has created <config dir>/portkey).
+	if err := os.MkdirAll(filepath.Dir(c.cachePath), 0o755); err != nil {
 		return // best-effort cache IO (see type-level comment)
 	}
 	// Write with permissions 0600 so only the owner can read the cache file.
