@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"syscall"
 	"testing"
 
 	"github.com/yhzion/portkey/internal/config"
