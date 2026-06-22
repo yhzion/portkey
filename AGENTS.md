@@ -58,7 +58,7 @@
 | Package | Role |
 |---------|------|
 | `main` | Load config, create tea.Program, run. Nothing else. |
-| `internal/config` | `Host`/`Config` structs. `Store` interface for file I/O. Path resolution via `os.UserConfigDir`. Name validation (`ValidateName`), lookup (`FindHostByName`), migration (`MigrateName`). |
+| `internal/config` | `Host`/`Config` structs. `Store` interface for file I/O. Path resolution via `os.UserConfigDir`. Name validation (`ValidateName`), lookup (`FindHostByName`). |
 | `internal/ssh` | `BuildArgs` converts `Host` → `[]string`. `Run` executes `exec.Command("ssh", ...)`. No shell interpolation. |
 | `internal/tui` | All Bubble Tea Model/Update/View. Screen state machine. Lip Gloss styling. Huh forms for add/edit. |
 
@@ -70,7 +70,7 @@
 - **Port 22 is the default.** Only adds `-p <port>` when port ≠ 22.
 - **Name must be valid** per `config.ValidateName`: lowercase `[a-z0-9_-]` only, unique, non-empty.
 - **Config stored as JSON** at `$XDG_CONFIG_HOME/portkey/hosts.json` (platform-respectful via `os.UserConfigDir`).
-- **Schema uses `name` (not `displayName`).** Auto-migrates old `displayName` on load via `MigrateName`.
+- **Schema uses `name` (not `displayName`).**
 
 ---
 
