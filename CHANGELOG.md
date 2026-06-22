@@ -3,7 +3,13 @@
 ## [0.4.2] - 2026-06-22
 
 ### Fixed
-- redirect dead loopback DNS instead of fallback-on-error (#80)
+- redirect dead loopback DNS instead of fallback-on-error (#80) — fixes
+  `portkey update` on Android/Termux, which the v0.4.1 attempt did not (a UDP
+  dial to the dead `[::1]:53` default succeeds, so the fallback never ran).
+  Now redirects to the device's own resolvers (`net.dnsN`), then public DNS.
+  **Verified working on Termux (android/arm64).**
+- install.sh auto-installs `minisign` via `pkg` on Termux so releases are
+  signature-verified there instead of silently trusted (#80)
 
 
 ## [0.4.1] - 2026-06-22
