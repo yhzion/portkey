@@ -102,6 +102,9 @@ func (m *model) handleHostListKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.selected++
 		}
 	case key.Matches(msg, m.keys.Quit):
+		if m.updateModel.cancelCheck != nil {
+			m.updateModel.cancelCheck()
+		}
 		return m, tea.Quit
 	case msg.String() == "u":
 		if m.updateModel.latestRelease != nil {

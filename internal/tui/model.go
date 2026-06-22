@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"context"
 	"fmt"
 	"strconv"
 	"sync"
@@ -82,7 +83,7 @@ type updateCheckFailedMsg struct {
 // package so the model can be tested with a fake instead of a live HTTP client.
 // *updater.Client satisfies it.
 type UpdateChecker interface {
-	CheckLatest() (*updater.Release, error)
+	CheckLatest(ctx context.Context) (*updater.Release, error)
 }
 
 type updateDoneMsg struct {
@@ -305,7 +306,7 @@ func InitialModel(cfg *config.Config, version string, upd UpdateChecker, store c
 func (m *model) Init() tea.Cmd {
 	config.SortHosts(m.config.Hosts)
 	if m.updateModel.checker != nil && m.updateModel.version != "dev" {
-		return m.updateModel.checkUpdate()
+		return m.updateModel.checkUpdate(context.Background())
 	}
 	return nil
 }
