@@ -4,9 +4,11 @@ import (
 	"errors"
 	"net"
 	"strconv"
+	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/yhzion/portkey/internal/config"
 )
 
 func TestClassifyDialError(t *testing.T) {
@@ -83,5 +85,28 @@ func TestHandleHostListKey_R_ResetsAndRechecks(t *testing.T) {
 	}
 	if cmd == nil {
 		t.Error("r should return a re-check command")
+	}
+}
+
+func TestNameColor(t *testing.T) {
+	if nameColor(healthOnline) != colorPositive {
+		t.Errorf("online -> %q, want colorPositive", nameColor(healthOnline))
+	}
+	if nameColor(healthOffline) != colorDim {
+		t.Errorf("offline -> %q, want colorDim", nameColor(healthOffline))
+	}
+	if nameColor(healthUnknown) != "" {
+		t.Errorf("unknown -> %q, want empty (no color)", nameColor(healthUnknown))
+	}
+}
+
+// A colored name must still render on one line (no layout regression).
+func TestRenderHostItem_OnlineStatus_SingleLine(t *testing.T) {
+	m := newTestModel()
+	h := config.Host{Name: "datamaker-192-168-14-135", Username: "u", Host: "h", Port: 22}
+	m.health[h.Name] = healthOnline
+	row := m.renderHostItem(0, h, false, nil, nameColumnWidth([]string{h.Name}))
+	if body := strings.TrimSuffix(row, "\n"); strings.Contains(body, "\n") {
+		t.Errorf("colored row wrapped:\n%q", row)
 	}
 }

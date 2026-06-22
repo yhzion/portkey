@@ -47,8 +47,9 @@ var (
 			Width(4).
 			Foreground(lipgloss.Color(colorDim))
 
+	// nameStyle's width is applied per-render via nameColumnWidth (see view.go),
+	// so the column fits the longest visible name instead of a fixed 20.
 	nameStyle = lipgloss.NewStyle().
-			Width(20).
 			Bold(true)
 
 	addItemStyle = lipgloss.NewStyle().
@@ -69,3 +70,12 @@ var (
 			Foreground(lipgloss.Color(colorAccent)).
 			Bold(true)
 )
+
+// styledName returns the name-cell style for a host, tinted by health status.
+func styledName(status healthStatus, width int) lipgloss.Style {
+	s := nameStyle.Width(width)
+	if c := nameColor(status); c != "" {
+		s = s.Foreground(lipgloss.Color(c))
+	}
+	return s
+}

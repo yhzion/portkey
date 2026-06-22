@@ -60,6 +60,19 @@ func checkHostCmd(name, host string, port int) tea.Cmd {
 	}
 }
 
+// nameColor returns the foreground color for a host name given its health, or
+// "" when the name should keep its default color (unknown).
+func nameColor(status healthStatus) string {
+	switch status {
+	case healthOnline:
+		return colorPositive
+	case healthOffline:
+		return colorDim
+	default:
+		return ""
+	}
+}
+
 // healthCheckAll batches a check for every host. Returns nil when there are no
 // hosts so Init has nothing to run.
 func healthCheckAll(hosts []config.Host) tea.Cmd {
