@@ -428,4 +428,3 @@ func TestVerifyChecksum_CapsBody(t *testing.T) {
 		t.Fatal("verifyChecksum() error = nil, want error for oversized checksum body")
 	}
 }
-
