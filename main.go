@@ -12,6 +12,7 @@ import (
 
 	"github.com/yhzion/portkey/internal/cli"
 	"github.com/yhzion/portkey/internal/config"
+	"github.com/yhzion/portkey/internal/netfix"
 	"github.com/yhzion/portkey/internal/ssh"
 	"github.com/yhzion/portkey/internal/tui"
 	"github.com/yhzion/portkey/internal/updater"
@@ -20,6 +21,9 @@ import (
 var version = "dev"
 
 func main() {
+	// Repair DNS on Android/Termux (no /etc/resolv.conf) before any network use.
+	netfix.Install()
+
 	upd := updater.DefaultClient()
 
 	if len(os.Args) > 1 {
