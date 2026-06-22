@@ -2,12 +2,68 @@ package updater
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"runtime"
 	"strings"
 	"time"
 )
+
+// CheckErrorKind classifies why a CheckLatest call failed. The zero value is
+// KindUnknown; callers can switch on the kind to render distinct hints.
+type CheckErrorKind int
+
+const (
+	KindUnknown     CheckErrorKind = iota // unclassified / not set
+	KindOffline                           // transport / DNS / connection failure
+	KindRateLimited                       // HTTP 429 (Too Many Requests)
+	KindNotFound                          // HTTP 404 — no releases published yet
+	KindOther                             // HTTP 403 or any other non-200 status
+)
+
+// String returns a human-readable name for the kind (used in tests/logging).
+func (k CheckErrorKind) String() string {
+	switch k {
+	case KindOffline:
+		return "offline"
+	case KindRateLimited:
+		return "rate_limited"
+	case KindNotFound:
+		return "not_found"
+	case KindOther:
+		return "other"
+	default:
+		return "unknown"
+	}
+}
+
+// ClassifyCheckError inspects err returned by CheckLatest and returns the
+// appropriate CheckErrorKind. It must not be called with a nil error.
+func ClassifyCheckError(err error) CheckErrorKind {
+	if err == nil {
+		return KindUnknown
+	}
+	msg := err.Error()
+	// Transport / offline errors contain a wrapped net error.
+	var netErr net.Error
+	if errors.As(err, &netErr) {
+		return KindOffline
+	}
+	// Heuristic on error strings produced by CheckLatest below.
+	switch {
+	case strings.Contains(msg, "fetch latest release"):
+		return KindOffline
+	case msg == "rate limited":
+		return KindRateLimited
+	case strings.Contains(msg, "no releases"):
+		return KindNotFound
+	case strings.Contains(msg, "forbidden"):
+		return KindOther
+	}
+	return KindOther
+}
 
 // Asset represents a GitHub release asset.
 type Asset struct {
@@ -166,10 +222,16 @@ func (c *Client) CheckLatest() (*Release, error) {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode == http.StatusForbidden || resp.StatusCode == http.StatusTooManyRequests {
+	switch resp.StatusCode {
+	case http.StatusOK:
+		// fall through to decode
+	case http.StatusTooManyRequests:
 		return nil, fmt.Errorf("rate limited")
-	}
-	if resp.StatusCode != http.StatusOK {
+	case http.StatusNotFound:
+		return nil, fmt.Errorf("no releases published yet")
+	case http.StatusForbidden:
+		return nil, fmt.Errorf("forbidden (check token or repo visibility)")
+	default:
 		return nil, fmt.Errorf("unexpected status: %d", resp.StatusCode)
 	}
 
