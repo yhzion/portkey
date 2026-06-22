@@ -74,7 +74,9 @@ type updateAvailableMsg struct {
 	Rel *updater.Release
 }
 
-type updateCheckFailedMsg struct{}
+type updateCheckFailedMsg struct {
+	Kind updater.CheckErrorKind
+}
 
 // UpdateChecker reports the latest available release. Defined in the consumer
 // package so the model can be tested with a fake instead of a live HTTP client.

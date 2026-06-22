@@ -35,6 +35,9 @@ func (m *model) renderHostList() string {
 	if m.updateModel.tag != "" {
 		b.WriteString(" ")
 		b.WriteString(accentStyle.Render("✨ " + m.updateModel.tag + " available — press u to update"))
+	} else if hint := m.updateModel.checkFailHint(); hint != "" {
+		b.WriteString(" ")
+		b.WriteString(dimStyle.Render(hint))
 	}
 	b.WriteString("\n\n")
 

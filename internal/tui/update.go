@@ -26,6 +26,7 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case updateCheckFailedMsg:
+		m.updateModel.checkFailKind = msg.Kind
 		return m, nil
 
 	case updateDoneMsg:
