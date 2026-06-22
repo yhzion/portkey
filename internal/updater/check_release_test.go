@@ -170,8 +170,10 @@ func TestValidateTag_Accepts(t *testing.T) {
 // --- Progress callback for DownloadAndInstall ---
 
 // makeValidRelease builds a Release whose assets are served by the given mux.
-// It writes archive and checksums handlers under /asset and /checksums.
-func makeValidRelease(t *testing.T, mux *http.ServeMux, binaryContent []byte) *Release {
+// It registers handlers under /asset, /checksums, and /minisig, and returns
+// the ephemeral test public-key line alongside the Release so callers can set
+// c.signPubKey to pass fail-closed signature verification.
+func makeValidRelease(t *testing.T, mux *http.ServeMux, binaryContent []byte) (pubKeyLine string, rel *Release) {
 	t.Helper()
 
 	archiveData := buildTarGz(t, []tarEntry{{
@@ -189,7 +191,10 @@ func makeValidRelease(t *testing.T, mux *http.ServeMux, binaryContent []byte) *R
 	// _<goos>_<goarch>.tar.gz suffix) resolves it on every CI runner, not just
 	// linux/amd64 — DownloadAndInstall picks the asset via runtime.GOOS/GOARCH.
 	assetName := fmt.Sprintf("portkey_0.1.0_%s_%s.tar.gz", runtime.GOOS, runtime.GOARCH)
-	checksumLine := hash + "  " + assetName + "\n"
+	checksumLine := []byte(hash + "  " + assetName + "\n")
+
+	// Build a valid minisig over checksums.txt using an ephemeral test key.
+	pubKeyLine, minisigStr := makeMinisignFixture(t, checksumLine, "portkey test")
 
 	mux.HandleFunc("/asset", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
@@ -197,14 +202,19 @@ func makeValidRelease(t *testing.T, mux *http.ServeMux, binaryContent []byte) *R
 	})
 	mux.HandleFunc("/checksums", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte(checksumLine))
+		w.Write(checksumLine)
+	})
+	mux.HandleFunc("/minisig", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write([]byte(minisigStr))
 	})
 
-	return &Release{
+	return pubKeyLine, &Release{
 		Tag: "v0.1.0",
 		Assets: []Asset{
 			{Name: assetName, URL: "/asset"}, // placeholder; patched per-test
 			{Name: "checksums.txt", URL: "/checksums"},
+			{Name: "checksums.txt.minisig", URL: "/minisig"},
 		},
 	}
 }
@@ -218,10 +228,11 @@ func TestDownloadAndInstall_ProgressCallback(t *testing.T) {
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
 
-	rel := makeValidRelease(t, mux, binaryContent)
+	pubKeyLine, rel := makeValidRelease(t, mux, binaryContent)
 	// Fix asset URLs to use the test server's address.
 	rel.Assets[0].URL = srv.URL + "/asset"
 	rel.Assets[1].URL = srv.URL + "/checksums"
+	rel.Assets[2].URL = srv.URL + "/minisig"
 
 	// Intercept the final install step: redirect the exe path into a temp file.
 	dir := t.TempDir()
@@ -243,6 +254,7 @@ func TestDownloadAndInstall_ProgressCallback(t *testing.T) {
 		Owner:        "o",
 		Repo:         "r",
 		BaseURL:      srv.URL,
+		signPubKey:   pubKeyLine,
 	}
 	if err := c.DownloadAndInstall(rel, progress); err != nil {
 		t.Fatalf("DownloadAndInstall() error = %v", err)
@@ -268,9 +280,10 @@ func TestDownloadAndInstall_NilProgress(t *testing.T) {
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
 
-	rel := makeValidRelease(t, mux, binaryContent)
+	pubKeyLine, rel := makeValidRelease(t, mux, binaryContent)
 	rel.Assets[0].URL = srv.URL + "/asset"
 	rel.Assets[1].URL = srv.URL + "/checksums"
+	rel.Assets[2].URL = srv.URL + "/minisig"
 
 	dir := t.TempDir()
 	dst := dir + "/portkey"
@@ -288,6 +301,7 @@ func TestDownloadAndInstall_NilProgress(t *testing.T) {
 		Owner:        "o",
 		Repo:         "r",
 		BaseURL:      srv.URL,
+		signPubKey:   pubKeyLine,
 	}
 	// nil progress — must not panic.
 	if err := c.DownloadAndInstall(rel, nil); err != nil {
