@@ -173,7 +173,7 @@ func TestCheckLatestRateLimitedOn429(t *testing.T) {
 func TestClassifyCheckError(t *testing.T) {
 	tests := []struct {
 		name     string
-		status   int   // 0 means transport/offline error
+		status   int // 0 means transport/offline error
 		wantKind CheckErrorKind
 	}{
 		{"403_forbidden", http.StatusForbidden, KindOther},
