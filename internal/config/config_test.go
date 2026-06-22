@@ -212,6 +212,13 @@ func TestStoreSaveWritesPrivateFileMode(t *testing.T) {
 	path := filepath.Join(dir, "hosts.json")
 	store := config.NewStore(path)
 
+	if err := os.WriteFile(path, []byte(`{"hosts":[]}`), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chmod(path, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
 	cfg := &config.Config{Hosts: []config.Host{
 		{Name: "prod", Username: "admin", Host: "10.0.0.1", Port: 22},
 	}}
@@ -230,6 +237,10 @@ func TestStoreSaveWritesPrivateFileMode(t *testing.T) {
 }
 
 func TestStoreSaveKeepsExistingConfigWhenReplacementCannotBeCreated(t *testing.T) {
+	if os.Getuid() == 0 {
+		t.Skip("permission-based save failure cannot be simulated while running as root")
+	}
+
 	dir := t.TempDir()
 	path := filepath.Join(dir, "hosts.json")
 	store := config.NewStore(path)
