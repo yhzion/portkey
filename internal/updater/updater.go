@@ -215,7 +215,7 @@ type Client struct {
 func DefaultClient() *Client {
 	return &Client{
 		HTTP:         &http.Client{Timeout: 10 * time.Second},
-		DownloadHTTP: &http.Client{}, // no fixed timeout; downloads can take longer
+		DownloadHTTP: &http.Client{Timeout: 5 * time.Minute}, // generous timeout; downloads can take longer
 		Owner:        defaultOwner,
 		Repo:         defaultRepo,
 		BaseURL:      githubAPI,
