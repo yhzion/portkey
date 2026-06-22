@@ -102,6 +102,11 @@ get_latest_version() {
     die "Could not determine latest version from GitHub response."
   fi
 
+  # Validate the tag to prevent shell metacharacters / injection via MITM
+  if [[ ! "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$ ]]; then
+    die "Invalid version tag format: $tag"
+  fi
+
   echo "$tag"
 }
 
@@ -306,11 +311,17 @@ main() {
 
   # Download checksums
   info "Downloading checksums..."
-  download "$checksums_url" "${TMPDIR}/checksums.txt"
+  download "$checksums_url" "${TMPDIR}/checksums.txt" || true
+  if [ ! -s "${TMPDIR}/checksums.txt" ]; then
+    die "Failed to download checksums.txt"
+  fi
 
   # Download tarball
   info "Downloading ${filename}..."
-  download "$tarball_url" "${TMPDIR}/${filename}"
+  download "$tarball_url" "${TMPDIR}/${filename}" || true
+  if [ ! -s "${TMPDIR}/${filename}" ]; then
+    die "Failed to download release archive: ${filename}"
+  fi
 
   # Verify checksum
   verify_checksum "${TMPDIR}/${filename}" "${TMPDIR}/checksums.txt"
