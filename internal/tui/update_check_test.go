@@ -34,7 +34,7 @@ func (f fakeUpdateChecker) CheckLatest(_ context.Context) (*updater.Release, err
 
 func TestCheckUpdate_NewerAvailable(t *testing.T) {
 	checker := fakeUpdateChecker{rel: &updater.Release{Tag: "v99.0.0"}}
-	m := InitialModel(&config.Config{}, "v0.1.0", checker, mockStore{}).(*model)
+	m := InitialModel(&config.Config{}, "v0.1.0", checker, nil, mockStore{}).(*model)
 
 	msg := m.updateModel.checkUpdate(context.Background())()
 
@@ -49,7 +49,7 @@ func TestCheckUpdate_NewerAvailable(t *testing.T) {
 
 func TestCheckUpdate_UpToDate(t *testing.T) {
 	checker := fakeUpdateChecker{rel: &updater.Release{Tag: "v0.1.0"}}
-	m := InitialModel(&config.Config{}, "v0.1.0", checker, mockStore{}).(*model)
+	m := InitialModel(&config.Config{}, "v0.1.0", checker, nil, mockStore{}).(*model)
 
 	if msg := m.updateModel.checkUpdate(context.Background())(); msg != nil {
 		t.Errorf("checkUpdate() up-to-date msg = %v, want nil", msg)
@@ -58,7 +58,7 @@ func TestCheckUpdate_UpToDate(t *testing.T) {
 
 func TestCheckUpdate_Error(t *testing.T) {
 	checker := fakeUpdateChecker{err: errors.New("network down")}
-	m := InitialModel(&config.Config{}, "v0.1.0", checker, mockStore{}).(*model)
+	m := InitialModel(&config.Config{}, "v0.1.0", checker, nil, mockStore{}).(*model)
 
 	if _, ok := m.updateModel.checkUpdate(context.Background())().(updateCheckFailedMsg); !ok {
 		t.Error("expected updateCheckFailedMsg on error")
@@ -69,7 +69,7 @@ func TestCheckUpdate_Error(t *testing.T) {
 // updateCheckFailedMsg carrying a non-zero Kind when the checker fails.
 func TestCheckUpdate_ErrorCarriesKind(t *testing.T) {
 	checker := fakeUpdateChecker{err: errors.New("network down")}
-	m := InitialModel(&config.Config{}, "v0.1.0", checker, mockStore{}).(*model)
+	m := InitialModel(&config.Config{}, "v0.1.0", checker, nil, mockStore{}).(*model)
 
 	msg, ok := m.updateModel.checkUpdate(context.Background())().(updateCheckFailedMsg)
 	if !ok {
@@ -114,7 +114,7 @@ func TestCheckUpdate_KindClassification(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := InitialModel(&config.Config{}, "v0.1.0", tt.checker, mockStore{}).(*model)
+			m := InitialModel(&config.Config{}, "v0.1.0", tt.checker, nil, mockStore{}).(*model)
 			msg, ok := m.updateModel.checkUpdate(context.Background())().(updateCheckFailedMsg)
 			if !ok {
 				t.Fatal("expected updateCheckFailedMsg")

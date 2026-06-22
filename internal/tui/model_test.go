@@ -35,7 +35,7 @@ func newBaseForm() *hostForm {
 
 func newTestModel(hosts ...config.Host) *model {
 	cfg := &config.Config{Hosts: hosts}
-	return InitialModel(cfg, "v0.1.0", nil, mockStore{}).(*model)
+	return InitialModel(cfg, "v0.1.0", nil, nil, mockStore{}).(*model)
 }
 
 func TestHostForm_ToHost_DefaultPort(t *testing.T) {
@@ -140,7 +140,7 @@ func TestHostForm_ToHost_NameSet(t *testing.T) {
 
 func TestInitialModel_SetsDefaults(t *testing.T) {
 	cfg := &config.Config{Hosts: []config.Host{}}
-	m := InitialModel(cfg, "v0.1.0", nil, mockStore{}).(*model)
+	m := InitialModel(cfg, "v0.1.0", nil, nil, mockStore{}).(*model)
 
 	if m.screen != screenHostList {
 		t.Errorf("screen = %d, want screenHostList", m.screen)
@@ -155,7 +155,7 @@ func TestInitialModel_SetsDefaults(t *testing.T) {
 
 func TestInitialModel_WithExistingHosts(t *testing.T) {
 	cfg := &config.Config{Hosts: []config.Host{testHostDev, testHostB}}
-	m := InitialModel(cfg, "v0.1.0", nil, mockStore{}).(*model)
+	m := InitialModel(cfg, "v0.1.0", nil, nil, mockStore{}).(*model)
 	if len(m.config.Hosts) != 2 {
 		t.Errorf("len(Hosts) = %d, want 2", len(m.config.Hosts))
 	}
@@ -212,7 +212,7 @@ func TestSaveAndGoBack_NoDataRace_ConcurrentSaves(t *testing.T) {
 func TestSaveAndGoBack_RollbackOnSaveFailure(t *testing.T) {
 	saveErr := errors.New("disk full")
 	cfg := &config.Config{Hosts: []config.Host{testHostA}}
-	m := InitialModel(cfg, "v0.1.0", nil, failingStore{err: saveErr}).(*model)
+	m := InitialModel(cfg, "v0.1.0", nil, nil, failingStore{err: saveErr}).(*model)
 	m.screen = screenAddHost
 	m.formModel.hostForm = &hostForm{Username: "admin", Host: "10.0.0.1", Port: "22"}
 
@@ -233,7 +233,7 @@ func TestSaveAndGoBack_RollbackOnSaveFailure(t *testing.T) {
 func TestConfirmDelete_RollbackOnSaveFailure(t *testing.T) {
 	saveErr := errors.New("read-only fs")
 	cfg := &config.Config{Hosts: []config.Host{testHostA, testHostB}}
-	m := InitialModel(cfg, "v0.1.0", nil, failingStore{err: saveErr}).(*model)
+	m := InitialModel(cfg, "v0.1.0", nil, nil, failingStore{err: saveErr}).(*model)
 	m.showDeleteConfirm(0)
 
 	beforeHosts := len(m.config.Hosts)

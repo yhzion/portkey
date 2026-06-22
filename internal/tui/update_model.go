@@ -17,6 +17,7 @@ type updateModel struct {
 	latestRelease *updater.Release       // release info for the available update
 	version       string                 // current app version
 	checker       UpdateChecker          // update checker (nil in tests/dev)
+	installer     Installer              // installs updates; raw client, NOT the caching checker (nil in tests/dev)
 	checkFailKind updater.CheckErrorKind // set when the last check failed; KindUnknown means no failure
 
 	// cancelCheck cancels an in-flight checkUpdate Cmd. It is set when
@@ -74,8 +75,13 @@ func (u *updateModel) handleConfirmKey(msg tea.KeyMsg, keys keyMap) (screen, tea
 	}
 	switch strings.ToLower(msg.String()) {
 	case "y":
+		inst := u.installer
+		rel := u.latestRelease
 		return screenHostList, func() tea.Msg {
-			return updateDoneMsg{err: nil}
+			if inst == nil || rel == nil {
+				return updateDoneMsg{err: errors.New("no installer configured")}
+			}
+			return updateDoneMsg{err: inst.DownloadAndInstall(rel, nil)}
 		}
 	case "n":
 		return screenHostList, nil

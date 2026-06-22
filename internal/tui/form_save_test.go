@@ -17,7 +17,7 @@ func (s failingStore) Save(_ *config.Config) error   { return s.err }
 
 func TestSaveAndGoBack_SaveError(t *testing.T) {
 	saveErr := errors.New("disk full")
-	m := InitialModel(&config.Config{}, "v0.1.0", nil, failingStore{err: saveErr}).(*model)
+	m := InitialModel(&config.Config{}, "v0.1.0", nil, nil, failingStore{err: saveErr}).(*model)
 	m.screen = screenAddHost
 	m.formModel.hostForm = &hostForm{Username: "admin", Host: "10.0.0.1", Port: "22"}
 
@@ -33,7 +33,7 @@ func TestSaveAndGoBack_SaveError(t *testing.T) {
 }
 
 func TestSaveAndGoBack_SaveSuccess(t *testing.T) {
-	m := InitialModel(&config.Config{}, "v0.1.0", nil, mockStore{}).(*model)
+	m := InitialModel(&config.Config{}, "v0.1.0", nil, nil, mockStore{}).(*model)
 	m.screen = screenAddHost
 	m.formModel.hostForm = &hostForm{Username: "admin", Host: "10.0.0.1", Port: "22"}
 
@@ -48,7 +48,7 @@ func TestSaveAndGoBack_SaveSuccess(t *testing.T) {
 // forwardToForm should delegate to the embedded form and, when the form is not
 // complete, keep the model on the form screen.
 func TestForwardToForm_NoActiveForm(t *testing.T) {
-	m := InitialModel(&config.Config{}, "v0.1.0", nil, mockStore{}).(*model)
+	m := InitialModel(&config.Config{}, "v0.1.0", nil, nil, mockStore{}).(*model)
 	m.screen = screenAddHost // no form built yet
 
 	got, cmd := m.forwardToForm(tea.WindowSizeMsg{Width: 80, Height: 24})
@@ -65,7 +65,7 @@ func TestForwardToForm_NoActiveForm(t *testing.T) {
 }
 
 func TestForwardToForm_ActiveFormStaysOnScreen(t *testing.T) {
-	m := InitialModel(&config.Config{}, "v0.1.0", nil, mockStore{}).(*model)
+	m := InitialModel(&config.Config{}, "v0.1.0", nil, nil, mockStore{}).(*model)
 	m.screen = screenAddHost
 	m.formModel.showAdd()
 
