@@ -23,20 +23,34 @@ const maxBinarySize = 100 << 20 // 100 MiB
 // simulate cross-device (EXDEV) failures (issue #51).
 var osRename = os.Rename
 
+// osExecutable is os.Executable as a variable so tests can inject a fake path
+// to avoid touching the real running binary.
+var osExecutable = os.Executable
+
 // DownloadAndInstall downloads the release asset for the current platform,
 // verifies its SHA-256 checksum against checksums.txt, extracts the portkey
 // binary, and replaces the currently running executable.
-func (c *Client) DownloadAndInstall(rel *Release) error {
+//
+// progress is an optional callback invoked before each phase with a short
+// human-readable name ("Downloading", "Verifying checksum", "Installing").
+// Pass nil for silent operation (preserves the prior behaviour).
+func (c *Client) DownloadAndInstall(rel *Release, progress func(phase string)) error {
 	asset, ok := CurrentAsset(rel.Assets)
 	if !ok {
 		return fmt.Errorf("no binary available for %s/%s", runtime.GOOS, runtime.GOARCH)
 	}
 
+	if progress != nil {
+		progress("Downloading")
+	}
 	tarball, err := c.downloadBytes(asset.URL)
 	if err != nil {
 		return fmt.Errorf("download %s: %w", asset.Name, err)
 	}
 
+	if progress != nil {
+		progress("Verifying checksum")
+	}
 	if err := c.verifyChecksum(rel.Assets, asset.Name, tarball); err != nil {
 		return fmt.Errorf("checksum: %w", err)
 	}
@@ -51,6 +65,9 @@ func (c *Client) DownloadAndInstall(rel *Release) error {
 		return err
 	}
 
+	if progress != nil {
+		progress("Installing")
+	}
 	if err := replaceFile(exePath, bin); err != nil {
 		return fmt.Errorf("install: %w", err)
 	}
@@ -200,8 +217,9 @@ func extractBinary(r io.Reader) ([]byte, error) {
 }
 
 // currentExe returns the resolved path of the running executable.
+// It uses osExecutable so tests can inject a fake path.
 func currentExe() (string, error) {
-	exe, err := os.Executable()
+	exe, err := osExecutable()
 	if err != nil {
 		return "", fmt.Errorf("get executable path: %w", err)
 	}
