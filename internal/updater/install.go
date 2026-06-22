@@ -84,6 +84,10 @@ func (c *Client) verifyChecksum(assets []Asset, name string, data []byte) error 
 	}
 	defer resp.Body.Close()
 
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("fetch checksums: status %d", resp.StatusCode)
+	}
+
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return fmt.Errorf("read checksums: %w", err)
