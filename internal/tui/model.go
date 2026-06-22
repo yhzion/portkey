@@ -227,6 +227,9 @@ type model struct {
 	connectIndex int  // index of host being connected (-1 = none)
 	connected    bool // true after connectHost is called
 
+	// Health-check results keyed by host name (absent == healthUnknown).
+	health map[string]healthStatus
+
 	// mu guards m.config during async save. The save closure (runs in a
 	// goroutine) snapshots and reads config; on failure it also rolls back
 	// the in-memory mutation. saveAndGoBack/confirmDelete take this lock
@@ -310,16 +313,19 @@ func InitialModel(cfg *config.Config, version string, upd UpdateChecker, inst In
 			checker:   upd,
 			installer: inst,
 		},
+		health: map[string]healthStatus{},
 	}
 	return m
 }
 
 func (m *model) Init() tea.Cmd {
 	config.SortHosts(m.config.Hosts)
+	var cmds []tea.Cmd
 	if m.updateModel.checker != nil && m.updateModel.version != "dev" {
-		return m.updateModel.checkUpdate(context.Background())
+		cmds = append(cmds, m.updateModel.checkUpdate(context.Background()))
 	}
-	return nil
+	cmds = append(cmds, healthCheckAll(m.config.Hosts))
+	return tea.Batch(cmds...)
 }
 
 func buildHostForm(hf *hostForm) *huh.Form {

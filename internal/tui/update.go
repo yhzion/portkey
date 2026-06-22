@@ -39,6 +39,10 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
+	case healthResultMsg:
+		m.health[msg.name] = msg.status
+		return m, nil
+
 	case errMsg:
 		m.errMsg = msg.Error()
 		m.screen = screenError
@@ -111,6 +115,9 @@ func (m *model) handleHostListKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.screen = screenUpdateConfirm
 			return m, nil
 		}
+	case msg.String() == "r":
+		m.health = map[string]healthStatus{}
+		return m, healthCheckAll(m.config.Hosts)
 	case msg.String() == "a":
 		return m, m.showAddScreen()
 	case key.Matches(msg, m.keys.Edit):

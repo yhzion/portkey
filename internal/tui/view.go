@@ -68,6 +68,13 @@ func (m *model) renderHostList() string {
 		return b.String()
 	}
 
+	// Size the name column to the longest visible name so it never wraps.
+	names := make([]string, len(visible))
+	for i, hostIdx := range visible {
+		names[i] = m.config.Hosts[hostIdx].Name
+	}
+	nameWidth := nameColumnWidth(names)
+
 	for displayIdx, hostIdx := range visible {
 		host := m.config.Hosts[hostIdx]
 		selected := displayIdx == m.selected
@@ -75,7 +82,7 @@ func (m *model) renderHostList() string {
 		if matchMap != nil {
 			mr = matchMap[hostIdx]
 		}
-		b.WriteString(m.renderHostItem(displayIdx, host, selected, mr))
+		b.WriteString(m.renderHostItem(displayIdx, host, selected, mr, nameWidth))
 	}
 
 	b.WriteString(m.renderAddItem(m.selected == len(visible)))
@@ -88,7 +95,7 @@ func (m *model) renderHostList() string {
 			),
 		)
 	} else {
-		helpParts := "↑/↓ move · enter/space select · 1-9 quick select · / search · a add · e edit · d delete"
+		helpParts := "↑/↓ move · enter/space select · 1-9 quick select · / search · a add · e edit · d delete · r recheck"
 		if m.updateModel.tag != "" {
 			helpParts += " · u update"
 		}
@@ -104,15 +111,20 @@ func (m *model) renderHostItem(
 	host config.Host,
 	selected bool,
 	mr *matchResult,
+	nameWidth int,
 ) string {
-	nameStr := host.Name
+	// Truncate the name to the column width so it never wraps; kept tells us how
+	// many original runes survived so highlight positions in the cut-off region
+	// can be dropped.
+	nameText, kept := truncateName(host.Name, nameWidth)
+	nameStr := nameText
 	usernameStr := host.Username
 	hostStr := host.Host
 
 	if mr != nil && len(mr.positions) > 0 {
 		switch mr.matchedField {
 		case "name":
-			nameStr = highlightMatched(host.Name, mr.positions)
+			nameStr = highlightMatched(nameText, keepPositions(mr.positions, kept))
 		case "username":
 			usernameStr = highlightMatched(host.Username, mr.positions)
 		case "host":
@@ -128,7 +140,7 @@ func (m *model) renderHostItem(
 	line := fmt.Sprintf(
 		"%s %s %s",
 		indexStyle.Render(fmt.Sprintf("%d.", index+1)),
-		nameStyle.Render(nameStr),
+		styledName(m.health[host.Name], nameWidth).Render(nameStr),
 		dimStyle.Render(connInfo),
 	)
 

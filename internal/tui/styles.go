@@ -29,9 +29,11 @@ var (
 			Foreground(lipgloss.Color(colorBright)).
 			Background(lipgloss.Color(colorPrimary))
 
-	// nameStyle has no explicit foreground — it inherits from its parent.
-	// Inside selectedStyle: inherits colorBright (#FFFFFF) on colorPrimary bg.
-	// Inside normalStyle: inherits colorBright (#FFFFFF) on terminal bg.
+	// nameStyle has no explicit foreground by default, so an unchecked (unknown)
+	// host's name inherits its parent's color (colorBright inside selectedStyle
+	// or normalStyle). For online/offline hosts, styledName overrides the
+	// foreground (green / dim), which wins because the name is rendered to a
+	// finished ANSI string before being wrapped by the row style.
 
 	normalStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color(colorBright))
@@ -47,8 +49,9 @@ var (
 			Width(4).
 			Foreground(lipgloss.Color(colorDim))
 
+	// nameStyle's width is applied per-render via nameColumnWidth (see view.go),
+	// so the column fits the longest visible name instead of a fixed 20.
 	nameStyle = lipgloss.NewStyle().
-			Width(20).
 			Bold(true)
 
 	addItemStyle = lipgloss.NewStyle().
@@ -69,3 +72,12 @@ var (
 			Foreground(lipgloss.Color(colorAccent)).
 			Bold(true)
 )
+
+// styledName returns the name-cell style for a host, tinted by health status.
+func styledName(status healthStatus, width int) lipgloss.Style {
+	s := nameStyle.Width(width)
+	if c := nameColor(status); c != "" {
+		s = s.Foreground(lipgloss.Color(c))
+	}
+	return s
+}
