@@ -93,60 +93,83 @@ func fuzzyString(target, query string) (matchResult, bool) {
 
 // findBestMatch greedily finds the best match positions for query runes
 // within target runes. Uses a forward scan with scoring.
+//
+// Results are memoized on (tStart, qStart) so that repeated target characters
+// (e.g. "aaaa...") do not cause exponential recomputation. See #42.
 func findBestMatch(
 	target []rune,
 	query []rune,
 	tStart int,
 	qStart int,
 ) ([]int, float64, bool) {
-	if qStart >= len(query) {
-		return nil, 0, true
+	type memoKey struct{ tStart, qStart int }
+	type memoVal struct {
+		positions []int
+		score     float64
+		ok        bool
 	}
-	if tStart >= len(target) {
-		return nil, 0, false
+	memo := make(map[memoKey]memoVal)
+
+	var rec func(tStart, qStart int) ([]int, float64, bool)
+	rec = func(tStart, qStart int) ([]int, float64, bool) {
+		if qStart >= len(query) {
+			return nil, 0, true
+		}
+		if tStart >= len(target) {
+			return nil, 0, false
+		}
+
+		key := memoKey{tStart, qStart}
+		if v, hit := memo[key]; hit {
+			return v.positions, v.score, v.ok
+		}
+
+		var bestPositions []int
+		bestScore := float64(-1)
+		found := false
+
+		for ti := tStart; ti <= len(target)-len(query)+qStart; ti++ {
+			if target[ti] != query[qStart] {
+				continue
+			}
+
+			restPositions, restScore, ok := rec(ti+1, qStart+1)
+			if !ok {
+				continue
+			}
+
+			found = true
+			score := restScore
+
+			// Word boundary bonus.
+			if ti == 0 || isWordBoundary(target[ti-1]) {
+				score += 10
+			}
+
+			// Contiguous bonus: if previous query char matched at ti-1.
+			if len(restPositions) > 0 && restPositions[0] == ti+1 {
+				score += 5
+			}
+
+			// Earlier match bonus (diminishing).
+			score += float64(len(target)-ti) * 0.1
+
+			if score > bestScore {
+				bestScore = score
+				bestPositions = append([]int{ti}, restPositions...)
+			}
+		}
+
+		if !found {
+			memo[key] = memoVal{nil, 0, false}
+			return nil, 0, false
+		}
+
+		memo[key] = memoVal{bestPositions, bestScore, true}
+		return bestPositions, bestScore, true
 	}
 
-	var bestPositions []int
-	bestScore := float64(-1)
-	found := false
-
-	for ti := tStart; ti <= len(target)-len(query)+qStart; ti++ {
-		if target[ti] != query[qStart] {
-			continue
-		}
-
-		restPositions, restScore, ok := findBestMatch(target, query, ti+1, qStart+1)
-		if !ok {
-			continue
-		}
-
-		found = true
-		score := restScore
-
-		// Word boundary bonus.
-		if ti == 0 || isWordBoundary(target[ti-1]) {
-			score += 10
-		}
-
-		// Contiguous bonus: if previous query char matched at ti-1.
-		if len(restPositions) > 0 && restPositions[0] == ti+1 {
-			score += 5
-		}
-
-		// Earlier match bonus (diminishing).
-		score += float64(len(target)-ti) * 0.1
-
-		if score > bestScore {
-			bestScore = score
-			bestPositions = append([]int{ti}, restPositions...)
-		}
-	}
-
-	if !found {
-		return nil, 0, false
-	}
-
-	return bestPositions, bestScore, true
+	return rec(tStart, qStart)
 }
 
 // isWordBoundary returns true if the rune is a word separator.

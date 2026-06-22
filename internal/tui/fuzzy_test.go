@@ -1,7 +1,9 @@
 package tui
 
 import (
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/yhzion/portkey/internal/config"
 )
@@ -206,5 +208,57 @@ func TestFuzzyMatch_DuplicateResultsNotReturned(t *testing.T) {
 	results := fuzzyMatch(hosts, "adm")
 	if len(results) != 1 {
 		t.Errorf("len(results) = %d, want 1 (deduped)", len(results))
+	}
+}
+
+// --- #42 regression: repeated characters must not blow up exponentially ---
+
+func TestFuzzyMatch_RepeatedCharsNoBlowup(t *testing.T) {
+	// Repeated chars (target "a"x40, query "a"x10) used to take ~20s due to
+	// combinatorial recursion. It must now finish well under a UI frame.
+	target := strings.Repeat("a", 40)
+	hosts := []config.Host{{Name: target, Username: "u", Host: "h", Port: 22}}
+	query := strings.Repeat("a", 10)
+
+	done := make(chan struct{})
+	go func() {
+		fuzzyMatch(hosts, query)
+		close(done)
+	}()
+
+	select {
+	case <-done:
+	case <-time.After(50 * time.Millisecond):
+		t.Fatal("fuzzyMatch did not complete within 50ms (exponential blowup regression #42)")
+	}
+}
+
+func TestFuzzyMatch_RepeatedCharsValidSubsequence(t *testing.T) {
+	// Speed fix must not break matching: result must be a valid ascending
+	// subsequence of length == len(query).
+	target := strings.Repeat("a", 40)
+	hosts := []config.Host{{Name: target, Username: "u", Host: "h", Port: 22}}
+	results := fuzzyMatch(hosts, strings.Repeat("a", 10))
+	if len(results) != 1 {
+		t.Fatalf("len(results) = %d, want 1", len(results))
+	}
+	positions := results[0].positions
+	if len(positions) != 10 {
+		t.Fatalf("len(positions) = %d, want 10", len(positions))
+	}
+	for i := 1; i < len(positions); i++ {
+		if positions[i] <= positions[i-1] {
+			t.Errorf("positions not strictly ascending at %d: %d <= %d", i, positions[i], positions[i-1])
+		}
+	}
+}
+
+func BenchmarkFuzzyMatch_RepeatedChars(b *testing.B) {
+	target := strings.Repeat("a", 40)
+	hosts := []config.Host{{Name: target, Username: "u", Host: "h", Port: 22}}
+	query := strings.Repeat("a", 10)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		fuzzyMatch(hosts, query)
 	}
 }
