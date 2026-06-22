@@ -20,6 +20,11 @@ func newUpdateCmd(upd *updater.Client, version string) *Command {
 		Name:      "update",
 		ShortDesc: "Check and install the latest version",
 		Run: func(ctx *RunContext) int {
+			if _, _, _, _, ok := updater.ParseVersion(version); !ok {
+				fmt.Printf("Cannot determine current version (%s); skipping self-update.\n", version)
+				return ExitSuccess
+			}
+
 			if upd == nil {
 				upd = updater.DefaultClient()
 			}

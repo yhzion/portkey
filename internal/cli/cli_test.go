@@ -564,6 +564,62 @@ func TestDispatchUpdateNewerAvailable(t *testing.T) {
 	}
 }
 
+// TestDispatchUpdateDevVersionSkips verifies that running `portkey update` with
+// an unparseable version (e.g. "dev") prints a "Cannot determine current
+// version" message, returns ExitSuccess, and makes no network call at all.
+// The nil updater ensures any accidental network call panics, proving the guard
+// short-circuits before CheckLatest is ever invoked.
+func TestDispatchUpdateDevVersionSkips(t *testing.T) {
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	// nil updater: if CheckLatest is called it will panic (nil pointer dereference),
+	// which would fail the test loudly — proving the guard fires first.
+	code := cli.Dispatch([]string{"portkey", "update"}, "dev", "", nil)
+
+	w.Close()
+	os.Stdout = old
+
+	buf := make([]byte, 4096)
+	n, _ := r.Read(buf)
+	output := string(buf[:n])
+
+	if code != 0 {
+		t.Errorf("update dev version = %d, want 0 (ExitSuccess)", code)
+	}
+	if !strings.Contains(output, "Cannot determine current version") {
+		t.Errorf("expected 'Cannot determine current version' in output, got: %q", output)
+	}
+	if strings.Contains(output, "Already up to date") {
+		t.Errorf("output should NOT contain 'Already up to date' for dev version, got: %q", output)
+	}
+}
+
+// TestDispatchUpdateUnparseableVersionSkips checks that any non-semver version
+// string (not just "dev") also triggers the guard.
+func TestDispatchUpdateUnparseableVersionSkips(t *testing.T) {
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+
+	code := cli.Dispatch([]string{"portkey", "update"}, "dirty-branch", "", nil)
+
+	w.Close()
+	os.Stdout = old
+
+	buf := make([]byte, 4096)
+	n, _ := r.Read(buf)
+	output := string(buf[:n])
+
+	if code != 0 {
+		t.Errorf("update unparseable version = %d, want 0 (ExitSuccess)", code)
+	}
+	if !strings.Contains(output, "Cannot determine current version") {
+		t.Errorf("expected 'Cannot determine current version' in output, got: %q", output)
+	}
+}
+
 // --- help-flag synchronization ---
 
 func TestCommandHelpContainsAllFlags(t *testing.T) {
