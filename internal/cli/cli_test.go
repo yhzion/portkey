@@ -264,22 +264,31 @@ func TestDispatchEditRename(t *testing.T) {
 	}
 }
 
-func TestDispatchEditSuffixMatch(t *testing.T) {
+// TestDispatchEditSuffixMatchNonInteractiveAborts verifies that a suffix match
+// on edit in a non-interactive context (the default under test, where stdin is
+// not a TTY) aborts rather than silently editing the matched host (issue #46).
+func TestDispatchEditSuffixMatchNonInteractiveAborts(t *testing.T) {
 	path := setupConfig(t, []config.Host{
 		{Name: "production-api", Username: "admin", Host: "10.0.0.1", Port: 22},
 	})
+	old := os.Stderr
+	os.Stderr, _ = os.Open(os.DevNull)
 	code := cli.Dispatch([]string{
 		"portkey", "edit",
 		"--name", "api",
 		"--user", "root",
 	}, "dev", path, nil)
-	if code != 0 {
-		t.Fatalf("edit suffix = %d, want 0", code)
+	os.Stderr = old
+
+	if code != 1 {
+		t.Fatalf("edit suffix in non-interactive context = %d, want 1 (abort)", code)
 	}
 
+	// The host must be left untouched.
 	cfg := configFromPath(t, path)
-	if cfg.Hosts[0].Username != "root" {
-		t.Errorf("Username = %q, want %q", cfg.Hosts[0].Username, "root")
+	if cfg.Hosts[0].Username != "admin" {
+		t.Errorf("host was modified after non-interactive suffix abort: Username = %q, want admin",
+			cfg.Hosts[0].Username)
 	}
 }
 

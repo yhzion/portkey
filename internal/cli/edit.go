@@ -36,10 +36,25 @@ var editCmd = &Command{
 			return ExitRuntime
 		}
 
-		idx, err := cfg.FindHostByName(name)
+		idx, exact, err := cfg.FindHostByNameMatch(name)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			return ExitRuntime
+		}
+
+		// A suffix (not exact) match can land on a host the user did not
+		// intend to edit. Require explicit confirmation; in a non-interactive
+		// context the confirm seam aborts with a safety error (issue #46).
+		if !exact {
+			ok, cerr := confirmSuffix(cfg.Hosts[idx].Name, name, "Edit")
+			if cerr != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", cerr)
+				return ExitRuntime
+			}
+			if !ok {
+				fmt.Println("Canceled.")
+				return ExitRuntime
+			}
 		}
 
 		h := cfg.Hosts[idx]

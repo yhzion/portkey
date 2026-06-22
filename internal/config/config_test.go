@@ -548,6 +548,85 @@ func TestFindHostByNameExactPreferredOverSuffix(t *testing.T) {
 	}
 }
 
+// --- FindHostByNameMatch tests (exact vs suffix signal, issue #46) ---
+
+func TestFindHostByNameMatchExactSignalsExact(t *testing.T) {
+	cfg := &config.Config{Hosts: []config.Host{
+		{Name: "production-api", Username: "u", Host: "h1", Port: 22},
+		{Name: "staging", Username: "u", Host: "h2", Port: 22},
+	}}
+
+	idx, exact, err := cfg.FindHostByNameMatch("production-api")
+	if err != nil {
+		t.Fatalf("FindHostByNameMatch(\"production-api\") error = %v", err)
+	}
+	if idx != 0 {
+		t.Errorf("FindHostByNameMatch(\"production-api\") = %d, want 0", idx)
+	}
+	if !exact {
+		t.Errorf("exact = false, want true for exact name match")
+	}
+}
+
+func TestFindHostByNameMatchSuffixSignalsNotExact(t *testing.T) {
+	cfg := &config.Config{Hosts: []config.Host{
+		{Name: "production-api", Username: "u", Host: "h1", Port: 22},
+		{Name: "staging", Username: "u", Host: "h2", Port: 22},
+	}}
+
+	idx, exact, err := cfg.FindHostByNameMatch("api")
+	if err != nil {
+		t.Fatalf("FindHostByNameMatch(\"api\") error = %v", err)
+	}
+	if idx != 0 {
+		t.Errorf("FindHostByNameMatch(\"api\") = %d, want 0", idx)
+	}
+	if exact {
+		t.Errorf("exact = true, want false for suffix match")
+	}
+}
+
+func TestFindHostByNameMatchAmbiguousPreservesError(t *testing.T) {
+	cfg := &config.Config{Hosts: []config.Host{
+		{Name: "production-api", Username: "u", Host: "h1", Port: 22},
+		{Name: "staging-api", Username: "u", Host: "h2", Port: 22},
+	}}
+
+	_, _, err := cfg.FindHostByNameMatch("api")
+	if err == nil {
+		t.Fatal("FindHostByNameMatch(\"api\") should return error for ambiguous match")
+	}
+}
+
+func TestFindHostByNameMatchNotFound(t *testing.T) {
+	cfg := &config.Config{Hosts: []config.Host{
+		{Name: "production-api", Username: "u", Host: "h1", Port: 22},
+	}}
+
+	_, _, err := cfg.FindHostByNameMatch("staging")
+	if err == nil {
+		t.Fatal("FindHostByNameMatch(\"staging\") should return error when not found")
+	}
+}
+
+func TestFindHostByNameMatchExactPreferredOverSuffix(t *testing.T) {
+	cfg := &config.Config{Hosts: []config.Host{
+		{Name: "api", Username: "u", Host: "h1", Port: 22},
+		{Name: "production-api", Username: "u", Host: "h2", Port: 22},
+	}}
+
+	idx, exact, err := cfg.FindHostByNameMatch("api")
+	if err != nil {
+		t.Fatalf("FindHostByNameMatch(\"api\") error = %v", err)
+	}
+	if idx != 0 {
+		t.Errorf("FindHostByNameMatch(\"api\") = %d, want 0 (exact match)", idx)
+	}
+	if !exact {
+		t.Errorf("exact = false, want true; exact match must be preferred over suffix")
+	}
+}
+
 // --- SortHosts tests ---
 
 func TestSortHostsByLastUsed(t *testing.T) {
