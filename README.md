@@ -57,6 +57,28 @@ mv portkey /usr/local/bin/
 
 ---
 
+## Upgrade
+
+Run `portkey update` to check for and install the latest release:
+
+```bash
+portkey update
+```
+
+Flags:
+
+```
+--check-only / --dry-run     Report whether an update is available without installing.
+                             Exits with code 10 when an update exists (useful in scripts).
+--version-target <tag>       Install a specific release (e.g. v1.2.0). Use to pin,
+                             downgrade, or reinstall a known version.
+--force                      Reinstall the latest release even if already up to date.
+--yes / -y                   Skip the interactive confirmation prompt.
+                             Piped or CI runs skip it automatically.
+```
+
+---
+
 ## Usage
 
 Just run:
