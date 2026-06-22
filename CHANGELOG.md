@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.5.0] - 2026-06-22
+
+### Added
+- host health-check status + dynamic name column (#82)
+
+
 ## [0.4.2] - 2026-06-22
 
 ### Fixed
