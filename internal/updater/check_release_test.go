@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"runtime"
 	"testing"
 )
 
@@ -184,7 +185,10 @@ func makeValidRelease(t *testing.T, mux *http.ServeMux, binaryContent []byte) *R
 	}})
 
 	hash := fmt.Sprintf("%x", sha256.Sum256(archiveData))
-	const assetName = "portkey_0.1.0_linux_amd64.tar.gz"
+	// Name the asset for the CURRENT platform so CurrentAsset (which matches a
+	// _<goos>_<goarch>.tar.gz suffix) resolves it on every CI runner, not just
+	// linux/amd64 — DownloadAndInstall picks the asset via runtime.GOOS/GOARCH.
+	assetName := fmt.Sprintf("portkey_0.1.0_%s_%s.tar.gz", runtime.GOOS, runtime.GOARCH)
 	checksumLine := hash + "  " + assetName + "\n"
 
 	mux.HandleFunc("/asset", func(w http.ResponseWriter, r *http.Request) {
