@@ -8,6 +8,8 @@ import (
 	"path/filepath"
 )
 
+const configFileMode os.FileMode = 0o600
+
 // Store is the interface for config persistence.
 type Store interface {
 	Load() (*Config, error)
@@ -56,10 +58,48 @@ func (s *FileStore) Save(cfg *Config) error {
 		return fmt.Errorf("marshal config: %w", err)
 	}
 
-	if err := os.WriteFile(s.path, data, 0o644); err != nil {
+	if err := writeFileAtomic(s.path, data); err != nil {
 		return fmt.Errorf("write config file: %w", err)
 	}
 
+	return nil
+}
+
+func writeFileAtomic(path string, data []byte) error {
+	dir := filepath.Dir(path)
+	tmp, err := os.CreateTemp(dir, "."+filepath.Base(path)+".*.tmp")
+	if err != nil {
+		return fmt.Errorf("create temp file: %w", err)
+	}
+
+	tmpPath := tmp.Name()
+	keepTemp := false
+	defer func() {
+		if !keepTemp {
+			_ = os.Remove(tmpPath)
+		}
+	}()
+
+	if err := tmp.Chmod(configFileMode); err != nil {
+		_ = tmp.Close()
+		return fmt.Errorf("set temp file mode: %w", err)
+	}
+	if _, err := tmp.Write(data); err != nil {
+		_ = tmp.Close()
+		return fmt.Errorf("write temp file: %w", err)
+	}
+	if err := tmp.Sync(); err != nil {
+		_ = tmp.Close()
+		return fmt.Errorf("sync temp file: %w", err)
+	}
+	if err := tmp.Close(); err != nil {
+		return fmt.Errorf("close temp file: %w", err)
+	}
+	if err := os.Rename(tmpPath, path); err != nil {
+		return fmt.Errorf("replace file: %w", err)
+	}
+
+	keepTemp = true
 	return nil
 }
 
