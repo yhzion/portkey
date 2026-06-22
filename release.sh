@@ -25,6 +25,7 @@ PREREQS=(
   "git||from https://git-scm.com"
   "svu|go install github.com/caarlos0/svu@latest|go install github.com/caarlos0/svu@latest"
   "goreleaser|go install github.com/goreleaser/goreleaser/v2@latest|go install github.com/goreleaser/goreleaser/v2@latest"
+  "minisign||from your package manager: brew install minisign / apt install minisign"
 )
 
 printf "\n${BOLD}  Portkey — Prerequisites${RESET}\n\n"
@@ -60,6 +61,10 @@ if [ ${#FAILED[@]} -gt 0 ]; then
 fi
 
 printf "\n"
+
+if [ -z "${MINISIGN_KEY_FILE:-}" ] || [ -z "${MINISIGN_PASSWORD:-}" ]; then
+  die "Set MINISIGN_KEY_FILE (path to secret key) and MINISIGN_PASSWORD before releasing (see AGENTS.md)."
+fi
 
 # ── Version ──────────────────────────────────────────────────────────
 BUMP="${1:-}"

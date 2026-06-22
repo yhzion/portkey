@@ -366,6 +366,61 @@ Uses [`svu`](https://github.com/caarlos0/svu) to calculate the next version from
 
 ---
 
+## Release Signing
+
+Every release must be signed with minisign. The in-app updater (`install.go`) is
+**fail-closed**: it refuses to install if `checksums.txt.minisig` is missing or
+invalid. `install.sh` is **best-effort**: it verifies when `minisign` is present
+and warns otherwise.
+
+### One-time keypair generation (maintainer only)
+
+```bash
+minisign -G -p portkey.pub -s ~/.minisign/portkey.key
+```
+
+- Keep `$HOME/.minisign/portkey.key` **secret** — never commit it.
+- The second line of `portkey.pub` (the `RW...` base64 line) is the public key.
+
+### Public key locations (must be kept in sync)
+
+The public key line is embedded in **two** places:
+
+| File | Symbol |
+|------|--------|
+| `internal/updater/pubkey.go` | `const MinisignPublicKey` |
+| `install.sh` | `MINISIGN_PUBKEY="..."` |
+
+`TestInstallScriptPublicKeyMatches` in `internal/updater/install_sh_key_test.go`
+enforces that both values are identical. Update both files whenever the keypair
+rotates, and keep the test green.
+
+### Signing environment variables
+
+`release.sh` requires these two variables to be set before running:
+
+| Variable | Value |
+|----------|-------|
+| `MINISIGN_KEY_FILE` | Absolute path to the secret key (e.g. `$HOME/.minisign/portkey.key`) |
+| `MINISIGN_PASSWORD` | Password for the secret key |
+
+```bash
+export MINISIGN_KEY_FILE="$HOME/.minisign/portkey.key"
+export MINISIGN_PASSWORD="your-key-password"
+./release.sh patch
+```
+
+`release.sh` will fail fast with a clear error if either variable is unset.
+
+### Goreleaser signing config
+
+`.goreleaser.yml` uses the `signs:` block to invoke `minisign -S` on
+`checksums.txt`, producing `checksums.txt.minisig`, which is uploaded as a
+release asset (`output: true`). The key password is piped via `stdin` so the
+release is non-interactive.
+
+---
+
 ## Testing Strategy
 
 ### Unit Tests

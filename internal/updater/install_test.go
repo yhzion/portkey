@@ -4,12 +4,15 @@ import (
 	"archive/tar"
 	"bytes"
 	"compress/gzip"
+	"crypto/sha256"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -429,3 +432,95 @@ func TestVerifyChecksum_CapsBody(t *testing.T) {
 	}
 }
 
+// --- Fail-closed signature verification ---
+
+// makeChecksumAssets builds a fake HTTP server that serves checksums.txt and
+// optionally checksums.txt.minisig, returning the server, asset list, and the
+// raw checksum body so callers can compute matching hashes.
+func makeChecksumServer(
+	t *testing.T,
+	checksumBody []byte,
+	minisigBody []byte, // nil means do NOT serve checksums.txt.minisig
+) (*httptest.Server, []Asset) {
+	t.Helper()
+	mux := http.NewServeMux()
+	mux.HandleFunc("/checksums", func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		w.Write(checksumBody)
+	})
+	if minisigBody != nil {
+		mux.HandleFunc("/minisig", func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(http.StatusOK)
+			w.Write(minisigBody)
+		})
+	}
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+
+	assets := []Asset{{Name: "checksums.txt", URL: srv.URL + "/checksums"}}
+	if minisigBody != nil {
+		assets = append(assets, Asset{Name: "checksums.txt.minisig", URL: srv.URL + "/minisig"})
+	}
+	return srv, assets
+}
+
+// TestVerifyChecksum_MissingSignatureFailClosed verifies that a release whose
+// assets include checksums.txt but NOT checksums.txt.minisig is refused.
+func TestVerifyChecksum_MissingSignatureFailClosed(t *testing.T) {
+	checksumBody := []byte("aabbcc  portkey_0.1.0_linux_amd64.tar.gz\n")
+	srv, assets := makeChecksumServer(t, checksumBody, nil /* no .minisig */)
+	_ = srv
+
+	c := &Client{HTTP: srv.Client(), signPubKey: MinisignPublicKey}
+
+	err := c.verifyChecksum(assets, "portkey_0.1.0_linux_amd64.tar.gz", []byte("data"))
+	if err == nil {
+		t.Fatal("verifyChecksum() error = nil, want error when .minisig is missing")
+	}
+	if !strings.Contains(err.Error(), "not signed") && !strings.Contains(err.Error(), "missing") {
+		t.Errorf("error %q should mention missing signature", err.Error())
+	}
+}
+
+// TestVerifyChecksum_InvalidSignatureFailClosed verifies that a release serving
+// a bogus checksums.txt.minisig is refused.
+func TestVerifyChecksum_InvalidSignatureFailClosed(t *testing.T) {
+	checksumBody := []byte("aabbcc  portkey_0.1.0_linux_amd64.tar.gz\n")
+	bogusMinisig := []byte("not a valid minisig file\n")
+	srv, assets := makeChecksumServer(t, checksumBody, bogusMinisig)
+	_ = srv
+
+	c := &Client{HTTP: srv.Client(), signPubKey: MinisignPublicKey}
+
+	err := c.verifyChecksum(assets, "portkey_0.1.0_linux_amd64.tar.gz", []byte("data"))
+	if err == nil {
+		t.Fatal("verifyChecksum() error = nil, want error for invalid signature")
+	}
+}
+
+// TestVerifyChecksum_ValidSignaturePasses verifies that a correctly-signed
+// checksums.txt is accepted and checksum matching succeeds. The client's
+// signPubKey is pointed at the test fixture key, not the real pinned key.
+func TestVerifyChecksum_ValidSignaturePasses(t *testing.T) {
+	assetName := fmt.Sprintf("portkey_0.1.0_%s_%s.tar.gz", runtime.GOOS, runtime.GOARCH)
+	data := []byte("FAKE-BINARY-FOR-SIG-TEST")
+	hash := fmt.Sprintf("%x", sha256Sum(data))
+	checksumBody := []byte(hash + "  " + assetName + "\n")
+
+	pubKeyLine, minisigStr := makeMinisignFixture(t, checksumBody, "portkey test")
+	srv, assets := makeChecksumServer(t, checksumBody, []byte(minisigStr))
+	_ = srv
+
+	c := &Client{HTTP: srv.Client(), signPubKey: pubKeyLine}
+
+	err := c.verifyChecksum(assets, assetName, data)
+	if err != nil {
+		t.Fatalf("verifyChecksum() error = %v, want nil for valid signature + matching hash", err)
+	}
+}
+
+// sha256Sum is a local alias to avoid importing crypto/sha256 just for tests
+// that already use makeMinisignFixture.
+func sha256Sum(data []byte) [32]byte {
+	return sha256.Sum256(data)
+}

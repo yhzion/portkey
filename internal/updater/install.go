@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"crypto/sha256"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -104,55 +105,77 @@ func (c *Client) downloadBytes(url string) ([]byte, error) {
 	return data, nil
 }
 
-// verifyChecksum downloads checksums.txt from the release assets and verifies
-// that the SHA-256 of data matches the entry for name.
-func (c *Client) verifyChecksum(assets []Asset, name string, data []byte) error {
-	var checksumURL string
+// errAssetNotFound indicates a named asset is absent from the release.
+var errAssetNotFound = errors.New("asset not found in release")
+
+// downloadAsset finds the named asset in the release and returns its body,
+// status-checked and size-capped. Returns errAssetNotFound (wrapped) when the
+// asset name is not present.
+func (c *Client) downloadAsset(assets []Asset, name string) ([]byte, error) {
+	var url string
 	for _, a := range assets {
-		if a.Name == "checksums.txt" {
-			checksumURL = a.URL
+		if a.Name == name {
+			url = a.URL
 			break
 		}
 	}
-	if checksumURL == "" {
-		return fmt.Errorf("checksums.txt not found in release")
+	if url == "" {
+		return nil, fmt.Errorf("%s: %w", name, errAssetNotFound)
 	}
-
 	dlClient := c.DownloadHTTP
 	if dlClient == nil {
 		dlClient = c.HTTP
 	}
-	resp, err := dlClient.Get(checksumURL)
+	resp, err := dlClient.Get(url)
 	if err != nil {
-		return fmt.Errorf("fetch checksums: %w", err)
+		return nil, fmt.Errorf("fetch %s: %w", name, err)
 	}
 	defer resp.Body.Close()
-
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("fetch checksums: status %d", resp.StatusCode)
+		return nil, fmt.Errorf("fetch %s: status %d", name, resp.StatusCode)
 	}
-
 	body, err := io.ReadAll(io.LimitReader(resp.Body, maxBinarySize+1))
 	if err != nil {
-		return fmt.Errorf("read checksums: %w", err)
+		return nil, fmt.Errorf("read %s: %w", name, err)
 	}
 	if int64(len(body)) > maxBinarySize {
-		return fmt.Errorf("checksums.txt exceeds %d bytes", maxBinarySize)
+		return nil, fmt.Errorf("%s exceeds %d bytes", name, maxBinarySize)
+	}
+	return body, nil
+}
+
+// verifyChecksum downloads checksums.txt from the release assets, verifies the
+// minisign signature over it (fail-closed: missing or invalid signature aborts
+// the install), and then checks that the SHA-256 of data matches the entry for
+// name.
+func (c *Client) verifyChecksum(assets []Asset, name string, data []byte) error {
+	body, err := c.downloadAsset(assets, "checksums.txt")
+	if err != nil {
+		return fmt.Errorf("checksums: %w", err)
+	}
+
+	// Fail-closed signature verification: the release MUST ship a valid
+	// checksums.txt.minisig signed by the pinned key. A missing or invalid
+	// signature aborts the install.
+	sig, err := c.downloadAsset(assets, "checksums.txt.minisig")
+	if err != nil {
+		if errors.Is(err, errAssetNotFound) {
+			return fmt.Errorf("release is not signed (checksums.txt.minisig missing); refusing to install")
+		}
+		return fmt.Errorf("signature: %w", err)
+	}
+	if err := verifyMinisign(c.signPubKey, body, sig); err != nil {
+		return fmt.Errorf("signature verification failed; refusing to install: %w", err)
 	}
 
 	expected := findHash(string(body), name)
 	if expected == "" {
 		return fmt.Errorf("no checksum entry for %s", name)
 	}
-
 	actual := fmt.Sprintf("%x", sha256.Sum256(data))
 	if actual != expected {
-		return fmt.Errorf(
-			"mismatch for %s: expected %s, got %s",
-			name, expected, actual,
-		)
+		return fmt.Errorf("mismatch for %s: expected %s, got %s", name, expected, actual)
 	}
-
 	return nil
 }
 

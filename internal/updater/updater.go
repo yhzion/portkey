@@ -209,6 +209,10 @@ type Client struct {
 	Owner   string
 	Repo    string
 	BaseURL string
+
+	// signPubKey is the minisign public key used to verify checksums.txt.
+	// Defaults to MinisignPublicKey; may be overridden in tests.
+	signPubKey string
 }
 
 // DefaultClient returns a client with sensible defaults.
@@ -219,6 +223,7 @@ func DefaultClient() *Client {
 		Owner:        defaultOwner,
 		Repo:         defaultRepo,
 		BaseURL:      githubAPI,
+		signPubKey:   MinisignPublicKey,
 	}
 }
 
