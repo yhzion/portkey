@@ -1,13 +1,79 @@
 package updater
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"runtime"
 	"strings"
 	"time"
 )
+
+// CheckErrorKind classifies why a CheckLatest call failed. The zero value is
+// KindUnknown; callers can switch on the kind to render distinct hints.
+type CheckErrorKind int
+
+const (
+	KindUnknown     CheckErrorKind = iota // unclassified / not set
+	KindOffline                           // transport / DNS / connection failure
+	KindRateLimited                       // HTTP 429 (Too Many Requests)
+	KindNotFound                          // HTTP 404 — no releases published yet
+	KindOther                             // HTTP 403 or any other non-200 status
+)
+
+// String returns a human-readable name for the kind (used in tests/logging).
+func (k CheckErrorKind) String() string {
+	switch k {
+	case KindOffline:
+		return "offline"
+	case KindRateLimited:
+		return "rate_limited"
+	case KindNotFound:
+		return "not_found"
+	case KindOther:
+		return "other"
+	default:
+		return "unknown"
+	}
+}
+
+// Sentinel errors returned (wrapped) by CheckLatest. Callers should use
+// errors.Is rather than comparing error strings directly; wrapping is safe.
+var (
+	ErrRateLimited = errors.New("rate limited")
+	ErrNoReleases  = errors.New("no releases published yet")
+	ErrForbidden   = errors.New("forbidden (check token or repo visibility)")
+)
+
+// ClassifyCheckError inspects err returned by CheckLatest and returns the
+// appropriate CheckErrorKind. It must not be called with a nil error.
+//
+// KindOffline covers both genuine connectivity failures and deadline/timeout
+// errors: a context.DeadlineExceeded wrapped inside *url.Error satisfies
+// net.Error (Timeout() == true), so timed-out checks classify as KindOffline.
+func ClassifyCheckError(err error) CheckErrorKind {
+	if err == nil {
+		return KindUnknown
+	}
+	// Transport / offline errors contain a wrapped net.Error.
+	// This includes context.DeadlineExceeded wrapped by *url.Error.
+	var netErr net.Error
+	if errors.As(err, &netErr) {
+		return KindOffline
+	}
+	switch {
+	case errors.Is(err, ErrRateLimited):
+		return KindRateLimited
+	case errors.Is(err, ErrNoReleases):
+		return KindNotFound
+	case errors.Is(err, ErrForbidden):
+		return KindOther
+	}
+	return KindOther
+}
 
 // Asset represents a GitHub release asset.
 type Asset struct {
@@ -129,7 +195,17 @@ type ghAsset struct {
 
 // Client checks for updates via GitHub releases.
 type Client struct {
-	HTTP    *http.Client
+	// HTTP is used for the short metadata check (CheckLatest). It has a tight
+	// timeout (~10 s) so the TUI startup check doesn't stall the user.
+	HTTP *http.Client
+
+	// DownloadHTTP is used for binary downloads (DownloadAndInstall). It must
+	// NOT share the same tight timeout as HTTP because multi-MB downloads can
+	// legitimately take much longer than 10 s on slow connections. A zero
+	// Timeout means no fixed deadline; per-request context deadlines may still
+	// be applied by the caller.
+	DownloadHTTP *http.Client
+
 	Owner   string
 	Repo    string
 	BaseURL string
@@ -138,20 +214,25 @@ type Client struct {
 // DefaultClient returns a client with sensible defaults.
 func DefaultClient() *Client {
 	return &Client{
-		HTTP:    &http.Client{Timeout: 10 * time.Second},
-		Owner:   defaultOwner,
-		Repo:    defaultRepo,
-		BaseURL: githubAPI,
+		HTTP:         &http.Client{Timeout: 10 * time.Second},
+		DownloadHTTP: &http.Client{Timeout: 5 * time.Minute}, // generous timeout; downloads can take longer
+		Owner:        defaultOwner,
+		Repo:         defaultRepo,
+		BaseURL:      githubAPI,
 	}
 }
 
 // CheckLatest fetches the latest release from GitHub.
-func (c *Client) CheckLatest() (*Release, error) {
+// The provided ctx is attached to the HTTP request so callers can cancel an
+// in-flight check (e.g. when the user quits the TUI). A cancelled or
+// deadline-exceeded context causes CheckLatest to return promptly with the
+// context error wrapped so that ClassifyCheckError still works.
+func (c *Client) CheckLatest(ctx context.Context) (*Release, error) {
 	url := fmt.Sprintf(
 		"%s/repos/%s/%s/releases/latest",
 		c.BaseURL, c.Owner, c.Repo,
 	)
-	req, err := http.NewRequest(http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("build request: %w", err)
 	}
@@ -166,10 +247,16 @@ func (c *Client) CheckLatest() (*Release, error) {
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode == http.StatusForbidden || resp.StatusCode == http.StatusTooManyRequests {
-		return nil, fmt.Errorf("rate limited")
-	}
-	if resp.StatusCode != http.StatusOK {
+	switch resp.StatusCode {
+	case http.StatusOK:
+		// fall through to decode
+	case http.StatusTooManyRequests:
+		return nil, fmt.Errorf("update check: %w", ErrRateLimited)
+	case http.StatusNotFound:
+		return nil, fmt.Errorf("update check: %w", ErrNoReleases)
+	case http.StatusForbidden:
+		return nil, fmt.Errorf("update check: %w", ErrForbidden)
+	default:
 		return nil, fmt.Errorf("unexpected status: %d", resp.StatusCode)
 	}
 

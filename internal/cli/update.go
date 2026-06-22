@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"fmt"
 	"os"
 
@@ -23,7 +24,7 @@ func newUpdateCmd(upd *updater.Client, version string) *Command {
 				upd = updater.DefaultClient()
 			}
 
-			rel, err := upd.CheckLatest()
+			rel, err := upd.CheckLatest(context.Background())
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Error checking for updates: %v\n", err)
 				return ExitRuntime

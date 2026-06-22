@@ -1,8 +1,12 @@
 package updater
 
 import (
+	"context"
+	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -138,7 +142,7 @@ func TestCheckLatestSendsUserAgent(t *testing.T) {
 	defer srv.Close()
 
 	c := &Client{HTTP: srv.Client(), Owner: "o", Repo: "r", BaseURL: srv.URL}
-	if _, err := c.CheckLatest(); err != nil {
+	if _, err := c.CheckLatest(context.Background()); err != nil {
 		t.Fatalf("CheckLatest() error = %v", err)
 	}
 	if gotUA == "" {
@@ -155,11 +159,105 @@ func TestCheckLatestRateLimitedOn429(t *testing.T) {
 	defer srv.Close()
 
 	c := &Client{HTTP: srv.Client(), Owner: "o", Repo: "r", BaseURL: srv.URL}
-	_, err := c.CheckLatest()
+	_, err := c.CheckLatest(context.Background())
 	if err == nil {
 		t.Fatal("CheckLatest() error = nil, want rate limited")
 	}
-	if err.Error() != "rate limited" {
-		t.Errorf("error = %q, want %q", err.Error(), "rate limited")
+	if !errors.Is(err, ErrRateLimited) {
+		t.Errorf("error %q should wrap ErrRateLimited", err.Error())
+	}
+}
+
+// TestClassifyCheckError verifies that 403, 429, 404, and transport errors
+// each classify to the expected CheckErrorKind (issue #65).
+func TestClassifyCheckError(t *testing.T) {
+	tests := []struct {
+		name     string
+		status   int // 0 means transport/offline error
+		wantKind CheckErrorKind
+	}{
+		{"403_forbidden", http.StatusForbidden, KindOther},
+		{"429_too_many_requests", http.StatusTooManyRequests, KindRateLimited},
+		{"404_not_found", http.StatusNotFound, KindNotFound},
+		{"offline", 0, KindOffline},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var err error
+			if tt.status == 0 {
+				// Simulate a transport/offline error by connecting to a closed server.
+				c := &Client{HTTP: http.DefaultClient, Owner: "o", Repo: "r", BaseURL: "http://127.0.0.1:0"}
+				_, err = c.CheckLatest(context.Background())
+			} else {
+				srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					w.WriteHeader(tt.status)
+				}))
+				defer srv.Close()
+				c := &Client{HTTP: srv.Client(), Owner: "o", Repo: "r", BaseURL: srv.URL}
+				_, err = c.CheckLatest(context.Background())
+			}
+			if err == nil {
+				t.Fatal("expected error, got nil")
+			}
+			got := ClassifyCheckError(err)
+			if got != tt.wantKind {
+				t.Errorf("ClassifyCheckError(%q) = %v, want %v", err.Error(), got, tt.wantKind)
+			}
+			// Wrapping robustness: an additional layer of wrapping must not break
+			// classification (proves errors.Is-based sentinel dispatch works through
+			// arbitrary wrapping, e.g. "update check: %w" then "context: %w").
+			wrapped := fmt.Errorf("outer context: %w", err)
+			if got2 := ClassifyCheckError(wrapped); got2 != tt.wantKind {
+				t.Errorf("ClassifyCheckError(wrapped %q) = %v, want %v", wrapped.Error(), got2, tt.wantKind)
+			}
+		})
+	}
+}
+
+// TestCheckLatest_404_NotFound verifies that a 404 response is treated as
+// "no releases yet" (NotFound) rather than "unexpected status: 404" (issue #65).
+func TestCheckLatest_404_NotFound(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer srv.Close()
+
+	c := &Client{HTTP: srv.Client(), Owner: "o", Repo: "r", BaseURL: srv.URL}
+	_, err := c.CheckLatest(context.Background())
+	if err == nil {
+		t.Fatal("expected error for 404, got nil")
+	}
+	if strings.Contains(err.Error(), "unexpected status") {
+		t.Errorf("404 should not produce 'unexpected status' error, got: %q", err.Error())
+	}
+}
+
+// TestCheckLatest_403_and_429_DistinctMessages verifies that 403 and 429 produce
+// distinct error messages (issue #65).
+func TestCheckLatest_403_and_429_DistinctMessages(t *testing.T) {
+	makeClient := func(status int) (*Client, func()) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(status)
+		}))
+		return &Client{HTTP: srv.Client(), Owner: "o", Repo: "r", BaseURL: srv.URL}, srv.Close
+	}
+
+	c403, close403 := makeClient(http.StatusForbidden)
+	defer close403()
+	_, err403 := c403.CheckLatest(context.Background())
+	if err403 == nil {
+		t.Fatal("expected error for 403")
+	}
+
+	c429, close429 := makeClient(http.StatusTooManyRequests)
+	defer close429()
+	_, err429 := c429.CheckLatest(context.Background())
+	if err429 == nil {
+		t.Fatal("expected error for 429")
+	}
+
+	if err403.Error() == err429.Error() {
+		t.Errorf("403 and 429 should produce distinct errors; both = %q", err403.Error())
 	}
 }

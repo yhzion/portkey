@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -22,6 +23,8 @@ func main() {
 	upd := updater.DefaultClient()
 
 	if len(os.Args) > 1 {
+		// CLI dispatch always uses the raw client — explicit `portkey update` must
+		// never be served from cache; it is infrequent and user-initiated.
 		code := cli.Dispatch(os.Args, version, "", upd)
 		if code >= 0 {
 			os.Exit(code)
@@ -40,7 +43,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	m := tui.InitialModel(cfg, version, upd, store)
+	// The TUI background check runs on every launch; cache it to stay within
+	// GitHub's unauthenticated rate limit (60 req/hr/IP). If ConfigDir() fails
+	// we fall back to the raw client rather than aborting startup.
+	tuiChecker := buildTUIChecker(upd)
+	m := tui.InitialModel(cfg, version, tuiChecker, store)
 
 	p := tea.NewProgram(
 		m,
@@ -86,4 +93,18 @@ func main() {
 		fmt.Fprintf(os.Stderr, "SSH error: %v\n", err)
 		os.Exit(1)
 	}
+}
+
+// buildTUIChecker returns a CachingChecker for the TUI background update
+// check. If the config directory cannot be determined, it falls back to the
+// raw client so startup is never blocked by a config-path failure.
+func buildTUIChecker(raw *updater.Client) tui.UpdateChecker {
+	dir, err := config.ConfigDir()
+	if err != nil {
+		// Cannot determine cache path; use raw client (no caching) rather than
+		// failing startup. This is expected to be extremely rare in practice.
+		return raw
+	}
+	cachePath := filepath.Join(dir, "update-check.json")
+	return updater.NewCachingChecker(raw, cachePath, updater.UpdateCheckTTL)
 }

@@ -1,6 +1,7 @@
 package updater
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -28,7 +29,7 @@ func TestCheckLatest_Success(t *testing.T) {
 		BaseURL: srv.URL,
 	}
 
-	rel, err := c.CheckLatest()
+	rel, err := c.CheckLatest(context.Background())
 	if err != nil {
 		t.Fatalf("CheckLatest() error: %v", err)
 	}
@@ -41,6 +42,8 @@ func TestCheckLatest_Success(t *testing.T) {
 }
 
 func TestCheckLatest_RateLimited(t *testing.T) {
+	// 403 Forbidden is now distinct from 429 Too Many Requests (issue #65).
+	// A plain 403 means "other" (e.g. no User-Agent or private repo), not rate-limited.
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusForbidden)
 	}))
@@ -53,12 +56,13 @@ func TestCheckLatest_RateLimited(t *testing.T) {
 		BaseURL: srv.URL,
 	}
 
-	_, err := c.CheckLatest()
+	_, err := c.CheckLatest(context.Background())
 	if err == nil {
-		t.Fatal("expected error for rate limit, got nil")
+		t.Fatal("expected error for 403, got nil")
 	}
-	if err.Error() != "rate limited" {
-		t.Errorf("error = %q, want %q", err.Error(), "rate limited")
+	// 403 should NOT produce "rate limited" anymore — it is a distinct error.
+	if err.Error() == "rate limited" {
+		t.Errorf("403 should not produce 'rate limited' error (that is for 429); got: %q", err.Error())
 	}
 }
 
@@ -75,7 +79,7 @@ func TestCheckLatest_ServerError(t *testing.T) {
 		BaseURL: srv.URL,
 	}
 
-	_, err := c.CheckLatest()
+	_, err := c.CheckLatest(context.Background())
 	if err == nil {
 		t.Fatal("expected error for 500, got nil")
 	}
