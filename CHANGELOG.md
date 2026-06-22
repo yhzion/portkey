@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.4.2] - 2026-06-22
+
+### Fixed
+- redirect dead loopback DNS instead of fallback-on-error (#80)
+
+
 ## [0.4.1] - 2026-06-22
 
 ### Fixed
