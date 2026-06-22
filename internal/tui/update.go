@@ -173,9 +173,6 @@ func (m *model) handleSearchKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		result, cmd := m.handleSelect()
 		m.deactivateSearch()
 		return result, cmd
-	case msg.String() == "q":
-		// Allow quit from search.
-		return m, tea.Quit
 	default:
 		// Quick-connect numbers (1-9) on filtered results.
 		r := msg.String()

@@ -264,14 +264,19 @@ func TestView_NormalMode_HelpShowsSearchKey(t *testing.T) {
 	}
 }
 
-// --- Search quits ---
+// --- 'q' types into query during search (does not quit) ---
 
-func TestSearch_QKey_Quits(t *testing.T) {
+func TestSearch_QKey_AppendsToQuery(t *testing.T) {
 	m := newTestModel(testHostDev)
 	m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'/'}})
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
-	if cmd == nil {
-		t.Error("q during search should quit")
+	if !strings.Contains(m.search.query, "q") {
+		t.Errorf("searchQuery = %q, want it to contain %q", m.search.query, "q")
+	}
+	if cmd != nil {
+		if _, ok := cmd().(tea.QuitMsg); ok {
+			t.Error("q during search should not quit")
+		}
 	}
 }
 

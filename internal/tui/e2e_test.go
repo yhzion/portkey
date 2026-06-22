@@ -1194,13 +1194,18 @@ func TestE2E_Search_BackspaceDeletesQuery(t *testing.T) {
 	}
 }
 
-func TestE2E_Search_QuitFromSearch(t *testing.T) {
+func TestE2E_Search_QKeyTypesIntoQuery(t *testing.T) {
 	m := newTestModel(config.Host{Name: "a", Username: "u", Host: "h", Port: 22})
 	m.activateSearch()
 
 	_, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune{'q'}})
-	if cmd == nil {
-		t.Error("q from search should produce quit command")
+	if !strings.Contains(m.search.query, "q") {
+		t.Errorf("searchQuery = %q, want it to contain %q", m.search.query, "q")
+	}
+	if cmd != nil {
+		if _, ok := cmd().(tea.QuitMsg); ok {
+			t.Error("q from search should not produce quit command")
+		}
 	}
 }
 
