@@ -29,9 +29,11 @@ var (
 			Foreground(lipgloss.Color(colorBright)).
 			Background(lipgloss.Color(colorPrimary))
 
-	// nameStyle has no explicit foreground — it inherits from its parent.
-	// Inside selectedStyle: inherits colorBright (#FFFFFF) on colorPrimary bg.
-	// Inside normalStyle: inherits colorBright (#FFFFFF) on terminal bg.
+	// nameStyle has no explicit foreground by default, so an unchecked (unknown)
+	// host's name inherits its parent's color (colorBright inside selectedStyle
+	// or normalStyle). For online/offline hosts, styledName overrides the
+	// foreground (green / dim), which wins because the name is rendered to a
+	// finished ANSI string before being wrapped by the row style.
 
 	normalStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color(colorBright))

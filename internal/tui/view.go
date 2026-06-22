@@ -95,7 +95,7 @@ func (m *model) renderHostList() string {
 			),
 		)
 	} else {
-		helpParts := "↑/↓ move · enter/space select · 1-9 quick select · / search · a add · e edit · d delete"
+		helpParts := "↑/↓ move · enter/space select · 1-9 quick select · / search · a add · e edit · d delete · r recheck"
 		if m.updateModel.tag != "" {
 			helpParts += " · u update"
 		}
