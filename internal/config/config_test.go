@@ -658,3 +658,48 @@ func TestHostLastUsedOmitempty(t *testing.T) {
 		t.Error("lastUsed should be omitted when empty")
 	}
 }
+
+func TestConfigClone_DeepCopiesHosts(t *testing.T) {
+	original := &config.Config{Hosts: []config.Host{
+		{Name: "dev", Username: "u", Host: "h1", Port: 22, LastUsed: "2024-01-01T00:00:00Z"},
+		{Name: "staging", Username: "ubuntu", Host: "h2", Port: 2222},
+	}}
+
+	cloned := original.Clone()
+
+	if len(cloned.Hosts) != len(original.Hosts) {
+		t.Fatalf("len(Hosts) = %d, want %d", len(cloned.Hosts), len(original.Hosts))
+	}
+	for i, h := range original.Hosts {
+		if cloned.Hosts[i] != h {
+			t.Errorf("Hosts[%d] = %+v, want %+v", i, cloned.Hosts[i], h)
+		}
+	}
+}
+
+func TestConfigClone_IsIndependent(t *testing.T) {
+	original := &config.Config{Hosts: []config.Host{
+		{Name: "a", Username: "u", Host: "h1", Port: 22},
+		{Name: "b", Username: "u", Host: "h2", Port: 22},
+	}}
+
+	cloned := original.Clone()
+	cloned.Hosts[0].Name = "mutated"
+	cloned.Hosts = append(cloned.Hosts, config.Host{Name: "c", Username: "u", Host: "h3", Port: 22})
+
+	if original.Hosts[0].Name != "a" {
+		t.Errorf("original Hosts[0].Name = %q, want %q (clone must not alias)", original.Hosts[0].Name, "a")
+	}
+	if len(original.Hosts) != 2 {
+		t.Errorf("len(original.Hosts) = %d, want 2 (append to clone must not grow original)", len(original.Hosts))
+	}
+}
+
+func TestConfigClone_Empty(t *testing.T) {
+	original := &config.Config{Hosts: []config.Host{}}
+	cloned := original.Clone()
+
+	if len(cloned.Hosts) != 0 {
+		t.Errorf("len(Hosts) = %d, want 0", len(cloned.Hosts))
+	}
+}
