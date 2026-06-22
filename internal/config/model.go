@@ -1,5 +1,7 @@
 package config
 
+const DefaultPort = 22
+
 type Host struct {
 	Name     string `json:"name"`
 	Username string `json:"username"`

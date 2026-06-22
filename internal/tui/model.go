@@ -2,6 +2,7 @@ package tui
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
@@ -29,10 +30,27 @@ type hostForm struct {
 	Port     string
 }
 
+// parsePort validates and parses a port string.
+// If empty, returns config.DefaultPort and no error.
+// If valid, returns the parsed port. Otherwise returns an error.
+func parsePort(s string) (int, error) {
+	if s == "" {
+		return config.DefaultPort, nil
+	}
+	port, err := strconv.Atoi(s)
+	if err != nil {
+		return 0, fmt.Errorf("port must be a number")
+	}
+	if port < 1 || port > 65535 {
+		return 0, fmt.Errorf("port must be between 1 and 65535")
+	}
+	return port, nil
+}
+
 func (f *hostForm) toHost() config.Host {
-	port := 22
-	if f.Port != "" {
-		fmt.Sscanf(f.Port, "%d", &port)
+	port, err := parsePort(f.Port)
+	if err != nil {
+		port = config.DefaultPort
 	}
 	name := f.Name
 	if name == "" {
@@ -251,7 +269,7 @@ func newKeyMap() keyMap {
 			key.WithHelp("esc", "cancel"),
 		),
 		Search: key.NewBinding(
-			key.WithKeys("/"),
+			key.WithKeys("/", "s"),
 			key.WithHelp("/", "search"),
 		),
 	}
@@ -318,17 +336,8 @@ func buildHostForm(hf *hostForm) *huh.Form {
 				Placeholder("22").
 				Value(&hf.Port).
 				Validate(func(s string) error {
-					if s == "" {
-						return nil
-					}
-					var port int
-					if _, err := fmt.Sscanf(s, "%d", &port); err != nil {
-						return fmt.Errorf("port must be a number")
-					}
-					if port < 1 || port > 65535 {
-						return fmt.Errorf("port must be between 1 and 65535")
-					}
-					return nil
+					_, err := parsePort(s)
+					return err
 				}),
 		),
 	).WithShowHelp(false)
@@ -373,9 +382,6 @@ func (m *model) confirmDelete() tea.Cmd {
 	m.config.RemoveHost(m.editIndex)
 	m.screen = screenHostList
 	m.selected = 0
-	if m.selected >= len(m.config.Hosts) {
-		m.selected = len(m.config.Hosts)
-	}
 	return func() tea.Msg {
 		if err := m.store.Save(m.config); err != nil {
 			return errMsg{err}
