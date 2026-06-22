@@ -3,6 +3,7 @@ package tui
 import (
 	"fmt"
 	"strconv"
+	"sync"
 
 	"github.com/charmbracelet/bubbles/key"
 	tea "github.com/charmbracelet/bubbletea"
@@ -215,6 +216,12 @@ type model struct {
 	// Last-connected tracking
 	connectIndex int  // index of host being connected (-1 = none)
 	connected    bool // true after connectHost is called
+
+	// mu guards m.config during async save. The save closure (runs in a
+	// goroutine) snapshots and reads config; on failure it also rolls back
+	// the in-memory mutation. saveAndGoBack/confirmDelete take this lock
+	// while mutating so the rollback cannot race a concurrent edit.
+	mu sync.Mutex
 }
 
 type keyMap struct {
@@ -362,16 +369,23 @@ func (m *model) showDeleteConfirm(index int) {
 func (m *model) saveAndGoBack() tea.Cmd {
 	host := m.formModel.hostForm.toHost()
 
+	m.mu.Lock()
+	before := m.config.Clone()
 	if m.screen == screenAddHost {
 		m.config.AddHost(host)
 	} else if m.screen == screenEditHost {
 		m.config.UpdateHost(m.editIndex, host)
 	}
+	toSave := m.config.Clone()
+	m.mu.Unlock()
 
 	m.screen = screenHostList
 	m.selected = 0
 	return func() tea.Msg {
-		if err := m.store.Save(m.config); err != nil {
+		if err := m.store.Save(toSave); err != nil {
+			m.mu.Lock()
+			m.config.Hosts = before.Hosts
+			m.mu.Unlock()
 			return errMsg{err}
 		}
 		return nil
@@ -379,11 +393,19 @@ func (m *model) saveAndGoBack() tea.Cmd {
 }
 
 func (m *model) confirmDelete() tea.Cmd {
+	m.mu.Lock()
+	before := m.config.Clone()
 	m.config.RemoveHost(m.editIndex)
+	toSave := m.config.Clone()
+	m.mu.Unlock()
+
 	m.screen = screenHostList
 	m.selected = 0
 	return func() tea.Msg {
-		if err := m.store.Save(m.config); err != nil {
+		if err := m.store.Save(toSave); err != nil {
+			m.mu.Lock()
+			m.config.Hosts = before.Hosts
+			m.mu.Unlock()
 			return errMsg{err}
 		}
 		return nil

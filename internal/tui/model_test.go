@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"errors"
 	"testing"
 
 	"github.com/yhzion/portkey/internal/config"
@@ -157,5 +158,95 @@ func TestInitialModel_WithExistingHosts(t *testing.T) {
 	m := InitialModel(cfg, "v0.1.0", nil, mockStore{}).(*model)
 	if len(m.config.Hosts) != 2 {
 		t.Errorf("len(Hosts) = %d, want 2", len(m.config.Hosts))
+	}
+}
+
+// TestSaveAndGoBack_NoDataRace_SaveInFlightAddHost verifies that firing the
+// save cmd returned by saveAndGoBack in a goroutine does not race with a
+// concurrent AddHost on the main model. Under the old code, the save closure
+// captured m.config (not a snapshot), so json.MarshalIndent inside Save read
+// the same Hosts slice that AddHost appends to — detectable by -race.
+func TestSaveAndGoBack_NoDataRace_SaveInFlightAddHost(t *testing.T) {
+	m := newTestModel(testHostA, testHostB)
+	m.screen = screenAddHost
+	m.formModel.hostForm = &hostForm{Username: "u", Host: "h", Port: "22"}
+
+	cmd := m.saveAndGoBack()
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		_ = cmd() // runs in goroutine, reads config via Save
+	}()
+
+	// Mutate the same slice concurrently while Save reads it.
+	m.config.AddHost(testHostC)
+	m.config.RemoveHost(0)
+
+	<-done
+}
+
+// TestSaveAndGoBack_NoDataRace_ConcurrentSaves verifies that two save
+// commands fired back-to-back do not race against each other's reads of the
+// shared config.
+func TestSaveAndGoBack_NoDataRace_ConcurrentSaves(t *testing.T) {
+	m := newTestModel(testHostA, testHostB)
+	m.screen = screenAddHost
+	m.formModel.hostForm = &hostForm{Username: "u", Host: "h", Port: "22"}
+
+	cmd1 := m.saveAndGoBack()
+	m.screen = screenEditHost
+	m.editIndex = 0
+	cmd2 := m.saveAndGoBack()
+
+	done := make(chan struct{}, 2)
+	go func() { _ = cmd1(); done <- struct{}{} }()
+	go func() { _ = cmd2(); done <- struct{}{} }()
+	<-done
+	<-done
+}
+
+// TestSaveAndGoBack_RollbackOnSaveFailure asserts that when the async Save
+// fails, the in-memory config reverts to its pre-mutation state. Without
+// rollback, the add leaves a phantom host that is not on disk.
+func TestSaveAndGoBack_RollbackOnSaveFailure(t *testing.T) {
+	saveErr := errors.New("disk full")
+	cfg := &config.Config{Hosts: []config.Host{testHostA}}
+	m := InitialModel(cfg, "v0.1.0", nil, failingStore{err: saveErr}).(*model)
+	m.screen = screenAddHost
+	m.formModel.hostForm = &hostForm{Username: "admin", Host: "10.0.0.1", Port: "22"}
+
+	beforeHosts := len(m.config.Hosts)
+
+	msg := m.saveAndGoBack()()
+
+	if _, ok := msg.(errMsg); !ok {
+		t.Fatalf("saveAndGoBack() on store error = %T, want errMsg", msg)
+	}
+	if len(m.config.Hosts) != beforeHosts {
+		t.Errorf("after failed save, len(Hosts) = %d, want %d (rollback)", len(m.config.Hosts), beforeHosts)
+	}
+}
+
+// TestConfirmDelete_RollbackOnSaveFailure asserts that a failed delete save
+// restores the removed host so the UI matches disk.
+func TestConfirmDelete_RollbackOnSaveFailure(t *testing.T) {
+	saveErr := errors.New("read-only fs")
+	cfg := &config.Config{Hosts: []config.Host{testHostA, testHostB}}
+	m := InitialModel(cfg, "v0.1.0", nil, failingStore{err: saveErr}).(*model)
+	m.showDeleteConfirm(0)
+
+	beforeHosts := len(m.config.Hosts)
+
+	msg := m.confirmDelete()()
+
+	if _, ok := msg.(errMsg); !ok {
+		t.Fatalf("confirmDelete() on store error = %T, want errMsg", msg)
+	}
+	if len(m.config.Hosts) != beforeHosts {
+		t.Errorf("after failed delete save, len(Hosts) = %d, want %d (rollback)", len(m.config.Hosts), beforeHosts)
+	}
+	if m.config.Hosts[0] != testHostA {
+		t.Errorf("Hosts[0] = %+v, want %+v (restored)", m.config.Hosts[0], testHostA)
 	}
 }
