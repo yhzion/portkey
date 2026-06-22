@@ -184,3 +184,27 @@ func TestView_NoUpdateNotification(t *testing.T) {
 		t.Error("should not show update notification when no update")
 	}
 }
+
+// TestView_HelpBar_UpdateHint_Hidden asserts that "u update" is absent from
+// the populated-list help bar when no update is cached (tag == "").
+func TestView_HelpBar_UpdateHint_Hidden(t *testing.T) {
+	m := newTestModel(testHostDev)
+	// tag is "" by default — no update available
+	view := m.View()
+
+	if strings.Contains(view, "u update") {
+		t.Error("help bar must NOT contain 'u update' when no update is available")
+	}
+}
+
+// TestView_HelpBar_UpdateHint_Shown asserts that "u update" appears in the
+// populated-list help bar when an update is cached (tag != "").
+func TestView_HelpBar_UpdateHint_Shown(t *testing.T) {
+	m := newTestModel(testHostDev)
+	m.updateModel.tag = "v1.0.0"
+	view := m.View()
+
+	if !strings.Contains(view, "u update") {
+		t.Error("help bar must contain 'u update' when an update is available")
+	}
+}
