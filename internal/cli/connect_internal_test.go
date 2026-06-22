@@ -53,6 +53,20 @@ func TestDispatchConnectHappyPath(t *testing.T) {
 	if fake.gotHost.Name != "myhost" {
 		t.Errorf("runner got host %q, want myhost", fake.gotHost.Name)
 	}
+
+	// LastUsed must be stamped on disk so the host bubbles up the
+	// recency-sorted list, mirroring the TUI path.
+	reloaded, err := config.NewStore(path).Load()
+	if err != nil {
+		t.Fatalf("reload config: %v", err)
+	}
+	idx, err := reloaded.FindHostByName("myhost")
+	if err != nil {
+		t.Fatalf("FindHostByName after connect: %v", err)
+	}
+	if reloaded.Hosts[idx].LastUsed == "" {
+		t.Error("expected LastUsed to be set on disk after a successful connect")
+	}
 }
 
 func TestDispatchConnectRunnerError(t *testing.T) {
