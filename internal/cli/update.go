@@ -51,7 +51,7 @@ func newUpdateCmd(upd *updater.Client, version string) *Command {
 			if versionTargetSet {
 				if err := updater.ValidateTag(versionTarget); err != nil {
 					fmt.Fprintf(os.Stderr, "Error: --version-target: %v\n", err)
-					return ExitRuntime
+					return ExitUsage
 				}
 			}
 
@@ -87,6 +87,13 @@ func newUpdateCmd(upd *updater.Client, version string) *Command {
 
 			// --check-only / --dry-run: report only, never install.
 			if doCheckOnly {
+				if versionTargetSet {
+					// Explicit target: report unconditionally regardless of
+					// whether IsNewer would fire.  The caller named a tag,
+					// so there is always work to do (ExitUpdateAvailable).
+					fmt.Printf("current: %s, target: %s\n", version, rel.Tag)
+					return ExitUpdateAvailable
+				}
 				if updater.IsNewer(version, rel.Tag) {
 					fmt.Printf("current: %s, latest: %s\n", version, rel.Tag)
 					return ExitUpdateAvailable

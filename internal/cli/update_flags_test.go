@@ -1,7 +1,6 @@
 package cli_test
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -144,12 +143,9 @@ func TestUpdateCheckOnly_NeverInstalls(t *testing.T) {
 	}
 }
 
-// TestUpdateCheckOnly_DevVersion verifies that --check-only bypasses the dev
-// guard (dev builds should be able to check).
-// Actually per spec: check-only does not bypass dev guard since it still checks.
-// The dev guard fires first and returns success before any network call.
-// This test verifies that --check-only with dev version also returns success
-// (same as the no-flag dev path, for orthogonality).
+// TestUpdateCheckOnly_DevVersion verifies that --check-only without
+// --version-target on a dev build triggers the dev guard: the guard fires
+// before any network call and returns ExitSuccess (0).
 func TestUpdateCheckOnly_DevVersion(t *testing.T) {
 	// nil updater: will panic if CheckLatest is called.
 	old := os.Stdout
@@ -160,6 +156,40 @@ func TestUpdateCheckOnly_DevVersion(t *testing.T) {
 	// dev guard fires → ExitSuccess (does not attempt network check).
 	if code != 0 {
 		t.Errorf("--check-only dev: code = %d, want 0", code)
+	}
+}
+
+// TestUpdateCheckOnly_VersionTargetDevBuild verifies that
+// --check-only --version-target vX.Y.Z on a dev (unparseable) build reports
+// the target unconditionally and returns ExitUpdateAvailable (10), and never
+// attempts to install (server has no assets, so an install attempt would
+// return ExitRuntime(1)).
+func TestUpdateCheckOnly_VersionTargetDevBuild(t *testing.T) {
+	srv := makeUpdateServer(t, "v1.2.3")
+	defer srv.Close()
+
+	upd := makeUpdClient(t, srv)
+
+	old := os.Stdout
+	r, w, _ := os.Pipe()
+	os.Stdout = w
+	code := cli.Dispatch(
+		[]string{"portkey", "update", "--check-only", "--version-target", "v1.2.3"},
+		"dev", "", upd,
+	)
+	w.Close()
+	os.Stdout = old
+
+	buf := make([]byte, 4096)
+	n, _ := r.Read(buf)
+	output := string(buf[:n])
+
+	if code != cli.ExitUpdateAvailable {
+		t.Errorf("--check-only --version-target on dev: code = %d, want %d (ExitUpdateAvailable)",
+			code, cli.ExitUpdateAvailable)
+	}
+	if !strings.Contains(output, "v1.2.3") {
+		t.Errorf("output should contain target tag v1.2.3, got: %q", output)
 	}
 }
 
@@ -257,8 +287,8 @@ func TestUpdateVersionTarget_InvalidTag(t *testing.T) {
 			code := cli.Dispatch([]string{"portkey", "update", "--version-target", tag}, "v1.0.0", "", upd)
 			os.Stderr = old
 
-			if code == 0 {
-				t.Errorf("invalid --version-target %q: code = 0, want non-zero", tag)
+			if code != cli.ExitUsage {
+				t.Errorf("invalid --version-target %q: code = %d, want %d (ExitUsage)", tag, code, cli.ExitUsage)
 			}
 			if networkCalled {
 				t.Errorf("invalid --version-target %q: network was called; must reject before any request", tag)
@@ -398,8 +428,6 @@ func TestExitUpdateAvailableValue(t *testing.T) {
 // works and we haven't broken the flag package initialization.
 func TestUpdateFlags_FlagSetInitialized(t *testing.T) {
 	path := setupConfig(t, nil)
-	data, _ := json.Marshal([]struct{}{})
-	_ = data
 	code := cli.Dispatch([]string{"portkey", "list"}, "v1.0.0", path, nil)
 	if code != 0 {
 		t.Errorf("sanity check list: code = %d, want 0", code)
