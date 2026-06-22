@@ -1,5 +1,27 @@
 # Changelog
 
+## [0.4.0] - 2026-06-22
+
+### Added
+- minisign release signature verification (#53) (#77)
+- portkey update UX — dev guard, --check-only/--version-target/--force, progress, --yes (#64, #67, #53) (#74)
+- update-check robustness — classify errors, context-cancel, cache (#65, #66, #63) (#73)
+- track and highlight matched field in fuzzy search (#62)
+
+### Fixed
+- install updates on confirm — wire raw client Installer (#41) (#76)
+- require confirmation before connecting on suffix host match (#46) (#72)
+- memoize fuzzy matcher to avoid exponential blowup on repeated chars (#42) (#71)
+- snapshot config before async save to fix race and add rollback (#44) (#70)
+- atomic self-replace + tar extraction guards (#51, #52) (#69)
+- harden updater/install against MITM and download failures (#60)
+- type 'q' into query during active search instead of quitting (#58)
+- stamp LastUsed on successful connect (#56)
+- semver pre-release precedence + harden CheckLatest (#48, #50) (#55)
+- write hosts config atomically
+- use literal space in sed for macOS compatibility
+
+
 ## [0.3.13] - 2026-06-08
 
 ### Fixed
