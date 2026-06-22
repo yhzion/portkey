@@ -1,5 +1,11 @@
 # Changelog
 
+## [0.4.1] - 2026-06-22
+
+### Fixed
+- fall back to public DNS on Android/Termux (#79)
+
+
 ## [0.4.0] - 2026-06-22
 
 ### Added
