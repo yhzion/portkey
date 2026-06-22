@@ -68,13 +68,11 @@ func (m *model) renderHostList() string {
 	for displayIdx, hostIdx := range visible {
 		host := m.config.Hosts[hostIdx]
 		selected := displayIdx == m.selected
-		var positions []int
+		var mr *matchResult
 		if matchMap != nil {
-			if mr, ok := matchMap[hostIdx]; ok {
-				positions = mr.positions
-			}
+			mr = matchMap[hostIdx]
 		}
-		b.WriteString(m.renderHostItem(displayIdx, host, selected, positions))
+		b.WriteString(m.renderHostItem(displayIdx, host, selected, mr))
 	}
 
 	b.WriteString(m.renderAddItem(m.selected == len(visible)))
@@ -101,16 +99,26 @@ func (m *model) renderHostItem(
 	index int,
 	host config.Host,
 	selected bool,
-	matchPositions []int,
+	mr *matchResult,
 ) string {
-	connInfo := fmt.Sprintf("%s@%s", host.Username, host.Host)
-	if host.Port != 22 {
-		connInfo = fmt.Sprintf("%s:%d", connInfo, host.Port)
+	nameStr := host.Name
+	usernameStr := host.Username
+	hostStr := host.Host
+
+	if mr != nil && len(mr.positions) > 0 {
+		switch mr.matchedField {
+		case "name":
+			nameStr = highlightMatched(host.Name, mr.positions)
+		case "username":
+			usernameStr = highlightMatched(host.Username, mr.positions)
+		case "host":
+			hostStr = highlightMatched(host.Host, mr.positions)
+		}
 	}
 
-	nameStr := host.Name
-	if len(matchPositions) > 0 {
-		nameStr = highlightMatched(host.Name, matchPositions)
+	connInfo := fmt.Sprintf("%s@%s", usernameStr, hostStr)
+	if host.Port != 22 {
+		connInfo = fmt.Sprintf("%s:%d", connInfo, host.Port)
 	}
 
 	line := fmt.Sprintf(

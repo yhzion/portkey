@@ -9,9 +9,10 @@ import (
 
 // matchResult holds a fuzzy match result with ranking and highlight positions.
 type matchResult struct {
-	hostIndex int     // index in original []config.Host
-	score     float64 // higher is better
-	positions []int   // rune positions in the matched string for highlighting
+	hostIndex    int     // index in original []config.Host
+	score        float64 // higher is better
+	positions    []int   // rune positions in the matched string for highlighting
+	matchedField string  // "name", "username", or "host"
 }
 
 // fuzzyMatch filters and ranks hosts by fuzzy-matching query against
@@ -21,7 +22,7 @@ func fuzzyMatch(hosts []config.Host, query string) []matchResult {
 	if query == "" {
 		results := make([]matchResult, len(hosts))
 		for i := range hosts {
-			results[i] = matchResult{hostIndex: i, score: 0}
+			results[i] = matchResult{hostIndex: i, score: 0, matchedField: "name"}
 		}
 		return results
 	}
@@ -32,16 +33,24 @@ func fuzzyMatch(hosts []config.Host, query string) []matchResult {
 	bestForHost := make(map[int]matchResult)
 
 	for i, h := range hosts {
-		candidates := []string{h.Name, h.Username, h.Host}
-		for _, candidate := range candidates {
-			result, ok := fuzzyString(strings.ToLower(candidate), qLower)
+		candidates := []struct {
+			name string
+			val  string
+		}{
+			{"name", h.Name},
+			{"username", h.Username},
+			{"host", h.Host},
+		}
+		for _, cand := range candidates {
+			result, ok := fuzzyString(strings.ToLower(cand.val), qLower)
 			if !ok {
 				continue
 			}
 			result.hostIndex = i
+			result.matchedField = cand.name
 
 			// Exact name match gets a big bonus.
-			if strings.ToLower(h.Name) == qLower {
+			if cand.name == "name" && strings.ToLower(h.Name) == qLower {
 				result.score += 100
 			}
 
@@ -52,8 +61,10 @@ func fuzzyMatch(hosts []config.Host, query string) []matchResult {
 	}
 
 	results := make([]matchResult, 0, len(bestForHost))
-	for _, r := range bestForHost {
-		results = append(results, r)
+	for i := range hosts {
+		if r, ok := bestForHost[i]; ok {
+			results = append(results, r)
+		}
 	}
 
 	// Sort by descending score.
