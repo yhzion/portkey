@@ -15,6 +15,11 @@ const (
 	ExitSuccess = 0
 	ExitRuntime = 1
 	ExitUsage   = 2
+
+	// ExitUpdateAvailable is returned by `portkey update --check-only` (or
+	// --dry-run) when a newer version is available. Scripts and CI can branch
+	// on this value to decide whether to trigger an automated update.
+	ExitUpdateAvailable = 10
 )
 
 // Command represents a CLI subcommand.
@@ -72,14 +77,15 @@ func Dispatch(osArgs []string, version string, configPath string, upd *updater.C
 		return ExitUsage
 	}
 
+	// Update needs client and version injected at call time (must happen
+	// before hasHelp so the flags appear in --help output).
+	if name == "update" {
+		cmd = newUpdateCmd(upd, version)
+	}
+
 	if hasHelp(osArgs[2:]) {
 		fmt.Print(cmd.Help())
 		return ExitSuccess
-	}
-
-	// Update needs client and version injected at call time.
-	if name == "update" {
-		cmd = newUpdateCmd(upd, version)
 	}
 
 	fs := flag.NewFlagSet(name, flag.ContinueOnError)
