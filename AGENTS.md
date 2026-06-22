@@ -376,10 +376,13 @@ and warns otherwise.
 ### One-time keypair generation (maintainer only)
 
 ```bash
-minisign -G -p portkey.pub -s ~/.minisign/portkey.key
+minisign -G -W -p portkey.pub -s "$HOME/.minisign/portkey.key"
+chmod 600 "$HOME/.minisign/portkey.key"
 ```
 
-- Keep `$HOME/.minisign/portkey.key` **secret** — never commit it.
+- `-W` generates a **password-less** secret key, so releases run non-interactively.
+  The key file itself is the only secret — keep `$HOME/.minisign/portkey.key`
+  out of version control and readable only by the maintainer (`chmod 600`).
 - The second line of `portkey.pub` (the `RW...` base64 line) is the public key.
 
 ### Public key locations (must be kept in sync)
@@ -395,29 +398,28 @@ The public key line is embedded in **two** places:
 enforces that both values are identical. Update both files whenever the keypair
 rotates, and keep the test green.
 
-### Signing environment variables
+### Signing environment variable
 
-`release.sh` requires these two variables to be set before running:
+`release.sh` requires this variable to be set before running:
 
 | Variable | Value |
 |----------|-------|
 | `MINISIGN_KEY_FILE` | Absolute path to the secret key (e.g. `$HOME/.minisign/portkey.key`) |
-| `MINISIGN_PASSWORD` | Password for the secret key |
 
 ```bash
 export MINISIGN_KEY_FILE="$HOME/.minisign/portkey.key"
-export MINISIGN_PASSWORD="your-key-password"
-./release.sh patch
+./release.sh minor
 ```
 
-`release.sh` will fail fast with a clear error if either variable is unset.
+`release.sh` will fail fast with a clear error if `MINISIGN_KEY_FILE` is unset.
+Because the key is password-less (`-W`), no `MINISIGN_PASSWORD` is needed.
 
 ### Goreleaser signing config
 
 `.goreleaser.yml` uses the `signs:` block to invoke `minisign -S` on
 `checksums.txt`, producing `checksums.txt.minisig`, which is uploaded as a
-release asset (`output: true`). The key password is piped via `stdin` so the
-release is non-interactive.
+release asset (`output: true`). The key is password-less, so signing runs
+non-interactively without any stdin password.
 
 ---
 

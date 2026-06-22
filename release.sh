@@ -62,8 +62,8 @@ fi
 
 printf "\n"
 
-if [ -z "${MINISIGN_KEY_FILE:-}" ] || [ -z "${MINISIGN_PASSWORD:-}" ]; then
-  die "Set MINISIGN_KEY_FILE (path to secret key) and MINISIGN_PASSWORD before releasing (see AGENTS.md)."
+if [ -z "${MINISIGN_KEY_FILE:-}" ]; then
+  die "Set MINISIGN_KEY_FILE (path to the minisign secret key) before releasing (see AGENTS.md)."
 fi
 
 # ── Version ──────────────────────────────────────────────────────────

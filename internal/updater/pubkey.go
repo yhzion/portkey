@@ -5,4 +5,4 @@ package updater
 // secret key is held only by the maintainer; see the release runbook in
 // AGENTS.md. This same value is embedded in install.sh and kept in sync by
 // TestInstallScriptPublicKeyMatches.
-const MinisignPublicKey = "RWReplaceWithRealPublicKeyLineBeforeFirstSignedRelease"
+const MinisignPublicKey = "RWQ6h3xYCh5o0DVdhljqTXzFkLkXM9k3A2CxwWNr8b9rXYU0qwTeF+TH"

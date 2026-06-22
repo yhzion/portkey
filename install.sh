@@ -9,7 +9,7 @@ REPO="yhzion/portkey"
 BINARY="portkey"
 
 # Pinned minisign public key (must match internal/updater/pubkey.go).
-MINISIGN_PUBKEY="RWReplaceWithRealPublicKeyLineBeforeFirstSignedRelease"
+MINISIGN_PUBKEY="RWQ6h3xYCh5o0DVdhljqTXzFkLkXM9k3A2CxwWNr8b9rXYU0qwTeF+TH"
 
 # ── Colors ────────────────────────────────────────────────────────────────
 RED='\033[0;31m'
