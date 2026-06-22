@@ -12,7 +12,7 @@ import (
 func BuildArgs(host config.Host) []string {
 	args := []string{}
 
-	if host.Port != 22 {
+	if host.Port != config.DefaultPort {
 		args = append(args, "-p", fmt.Sprintf("%d", host.Port))
 	}
 

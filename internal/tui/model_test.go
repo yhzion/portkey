@@ -89,6 +89,38 @@ func TestHostForm_ToHost_EmptyPortFallsBackTo22(t *testing.T) {
 	}
 }
 
+func TestParsePort(t *testing.T) {
+	tests := []struct {
+		input   string
+		want    int
+		wantErr bool
+	}{
+		{"", 22, false},
+		{"22", 22, false},
+		{"8080", 8080, false},
+		{"1", 1, false},
+		{"65535", 65535, false},
+		{"0", 0, true},
+		{"65536", 0, true},
+		{"abc", 0, true},
+		{"22abc", 0, true},
+		{" 22 ", 0, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			got, err := parsePort(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("parsePort(%q) error = %v, wantErr %v", tt.input, err, tt.wantErr)
+				return
+			}
+			if !tt.wantErr && got != tt.want {
+				t.Errorf("parsePort(%q) = %d, want %d", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestHostForm_ToHost_NameFallback(t *testing.T) {
 	h := newBaseForm().toHost()
 	if h.Name != testUsername {

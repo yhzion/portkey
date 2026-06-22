@@ -87,9 +87,6 @@ func (m *model) handleHostListKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case key.Matches(msg, m.keys.Search):
 		m.activateSearch()
 		return m, nil
-	case msg.String() == "s":
-		m.activateSearch()
-		return m, nil
 	}
 
 	totalItems := m.totalItems()

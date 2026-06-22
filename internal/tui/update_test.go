@@ -310,5 +310,3 @@ func TestSelectedHost_IndexOutOfRange(t *testing.T) {
 		t.Error("should return false for out-of-range index")
 	}
 }
-
-// errTest removed — no longer needed after sshDoneMsg removal.
