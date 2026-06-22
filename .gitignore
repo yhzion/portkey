@@ -1,3 +1,5 @@
 portkey
 dist/
 .claude/
+.openchrome/
+.playwright-mcp/
