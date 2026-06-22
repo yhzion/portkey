@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"syscall"
 	"testing"
 
 	"github.com/yhzion/portkey/internal/config"
@@ -204,6 +205,84 @@ func TestStoreSaveAndLoad(t *testing.T) {
 	}
 	if loaded.Hosts[1].Port != 2222 {
 		t.Errorf("Hosts[1].Port = %d, want %d", loaded.Hosts[1].Port, 2222)
+	}
+}
+
+func TestStoreSaveWritesPrivateFileMode(t *testing.T) {
+	oldUmask := syscall.Umask(0)
+	t.Cleanup(func() {
+		syscall.Umask(oldUmask)
+	})
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "hosts.json")
+	store := config.NewStore(path)
+
+	cfg := &config.Config{Hosts: []config.Host{
+		{Name: "prod", Username: "admin", Host: "10.0.0.1", Port: 22},
+	}}
+
+	if err := store.Save(cfg); err != nil {
+		t.Fatalf("Save() error = %v", err)
+	}
+
+	info, err := os.Stat(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := info.Mode().Perm(); got != 0o600 {
+		t.Errorf("file mode = %o, want 600", got)
+	}
+}
+
+func TestStoreSaveKeepsExistingConfigWhenReplacementCannotBeCreated(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "hosts.json")
+	store := config.NewStore(path)
+
+	original := &config.Config{Hosts: []config.Host{
+		{Name: "prod", Username: "admin", Host: "10.0.0.1", Port: 22},
+	}}
+	if err := store.Save(original); err != nil {
+		t.Fatalf("Save(original) error = %v", err)
+	}
+
+	before, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if err := os.Chmod(dir, 0o500); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() {
+		_ = os.Chmod(dir, 0o700)
+	})
+
+	replacement := &config.Config{Hosts: []config.Host{
+		{Name: "staging", Username: "ubuntu", Host: "staging.example.com", Port: 2222},
+	}}
+	if err := store.Save(replacement); err == nil {
+		t.Fatal("Save(replacement) should fail when replacement cannot be created")
+	}
+
+	after, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(after) != string(before) {
+		t.Fatalf("config changed after failed save:\ngot:\n%s\nwant:\n%s", after, before)
+	}
+
+	loaded, err := store.Load()
+	if err != nil {
+		t.Fatalf("Load() after failed save error = %v", err)
+	}
+	if len(loaded.Hosts) != 1 {
+		t.Fatalf("len(Hosts) = %d, want 1", len(loaded.Hosts))
+	}
+	if loaded.Hosts[0].Name != "prod" {
+		t.Errorf("Hosts[0].Name = %q, want %q", loaded.Hosts[0].Name, "prod")
 	}
 }
 
