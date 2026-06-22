@@ -174,25 +174,47 @@ func TestUpdateConfirmApprove_Installs(t *testing.T) {
 
 // --- non-TTY without --yes → proceeds without prompting ---
 
+// TestDefaultConfirmUpdate_NonTTY_ProceedsWithoutPrompt exercises the REAL
+// non-TTY branch of defaultConfirmUpdate directly. It replaces os.Stdin with
+// the read end of an os.Pipe (which is never a TTY), so isTerminal returns
+// false and defaultConfirmUpdate must return (true, nil) without reading any
+// input or printing a prompt.
+func TestDefaultConfirmUpdate_NonTTY_ProceedsWithoutPrompt(t *testing.T) {
+	// os.Pipe read end is not a terminal.
+	r, w, err := os.Pipe()
+	if err != nil {
+		t.Fatalf("os.Pipe: %v", err)
+	}
+	defer r.Close()
+	defer w.Close()
+
+	origStdin := os.Stdin
+	os.Stdin = r
+	defer func() { os.Stdin = origStdin }()
+
+	// Call the real function — must not block waiting for input.
+	ok, cerr := defaultConfirmUpdate("v1.0.0", "v2.0.0", false, false)
+	if cerr != nil {
+		t.Errorf("defaultConfirmUpdate non-TTY: unexpected error: %v", cerr)
+	}
+	if !ok {
+		t.Error("defaultConfirmUpdate non-TTY: returned false; want true (proceed without prompting)")
+	}
+}
+
 // TestUpdateNonTTY_ProceedsWithoutPrompt verifies that a non-TTY (scripted)
-// invocation proceeds to install without calling confirmUpdate (the seam is
-// bypassed for non-TTY, simulated by the production defaultConfirmUpdate logic
-// being short-circuited by isTerminal).
-//
-// We stub confirmUpdate to deny and confirm it is NEVER reached when stdin is
-// not a TTY. The non-TTY branch skips the seam entirely; the stub returning
-// false would abort the install if it were reached.
+// invocation proceeds to install via the Dispatch path. The confirmUpdate seam
+// is stubbed to return (true, nil) — matching what defaultConfirmUpdate does
+// when stdin is not a TTY — so the test focuses on end-to-end gate behavior
+// rather than on the TTY-detection logic itself (which is covered by
+// TestDefaultConfirmUpdate_NonTTY_ProceedsWithoutPrompt above).
 func TestUpdateNonTTY_ProceedsWithoutPrompt(t *testing.T) {
 	srv := makeUpdateSrvNoAssets(t, "v2.0.0")
 	defer srv.Close()
 	upd := makeUpdClientInternal(t, srv)
 
-	// The non-TTY proceed is handled INSIDE defaultConfirmUpdate (isTerminal
-	// check). To unit-test the gate's non-TTY branch, we replace confirmUpdate
-	// with a stub that mimics what defaultConfirmUpdate does when stdin is not a
-	// TTY: it returns (true, nil) — i.e., proceed without prompting.
 	withConfirmUpdate(t, func(current, tag string, force, versionTargetSet bool) (bool, error) {
-		// Simulate non-TTY: proceed silently.
+		// Simulate non-TTY: proceed silently (same as defaultConfirmUpdate does).
 		return true, nil
 	})
 

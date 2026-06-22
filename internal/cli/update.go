@@ -147,19 +147,12 @@ func newUpdateCmd(upd *updater.Client, version string) *Command {
 			// --version-target: always install (bypass IsNewer).
 			// --force: bypass IsNewer (reinstall even same/older).
 			// default: only install when newer.
-			switch {
-			case versionTargetSet:
-				// Explicit tag → install unconditionally.
-				fmt.Printf("Installing %s ...\n", rel.Tag)
-			case force:
-				// Force → reinstall latest.
-				fmt.Printf("Reinstalling %s ...\n", rel.Tag)
-			default:
-				if !updater.IsNewer(version, rel.Tag) {
-					fmt.Printf("Already up to date (%s).\n", version)
-					return ExitSuccess
-				}
-				fmt.Printf("Updating %s → %s ...\n", version, rel.Tag)
+			//
+			// Note: the "up to date" short-circuit fires before the confirmation
+			// gate because there is nothing to confirm — no install will happen.
+			if !versionTargetSet && !force && !updater.IsNewer(version, rel.Tag) {
+				fmt.Printf("Already up to date (%s).\n", version)
+				return ExitSuccess
 			}
 
 			// Confirmation gate: only on install paths, never on check-only/dry-run.
@@ -174,6 +167,17 @@ func newUpdateCmd(upd *updater.Client, version string) *Command {
 					fmt.Println("Canceled.")
 					return ExitSuccess
 				}
+			}
+
+			// Announce the action only after the user has confirmed (or --yes/non-TTY
+			// bypassed the gate), so the sequence is: prompt → [y] → "Updating..."
+			switch {
+			case versionTargetSet:
+				fmt.Printf("Installing %s ...\n", rel.Tag)
+			case force:
+				fmt.Printf("Reinstalling %s ...\n", rel.Tag)
+			default:
+				fmt.Printf("Updating %s → %s ...\n", version, rel.Tag)
 			}
 
 			progress := func(phase string) {
