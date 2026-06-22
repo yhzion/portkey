@@ -53,7 +53,6 @@ signs:
       - "portkey {{ .Version }}"
     artifacts: checksum
     output: true
-    stdin: "{{ .Env.MINISIGN_PASSWORD }}"
 
 release:
   extra_files:
