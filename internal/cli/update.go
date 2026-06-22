@@ -1,13 +1,49 @@
 package cli
 
 import (
+	"bufio"
 	"context"
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/yhzion/portkey/internal/updater"
 )
+
+// confirmUpdate is a package-level var so tests can stub it without real stdin.
+// It mirrors the confirmSuffix seam in connect.go.
+var confirmUpdate = defaultConfirmUpdate
+
+// defaultConfirmUpdate implements the interactive confirmation gate for installs.
+// If not a TTY, it proceeds silently (non-TTY/scripted use must not hang).
+// Returns (true, nil) to proceed, (false, nil) to cancel.
+func defaultConfirmUpdate(current, tag string, force, versionTargetSet bool) (bool, error) {
+	if !isTerminal(os.Stdin) {
+		return true, nil
+	}
+
+	var prompt string
+	switch {
+	case versionTargetSet:
+		prompt = fmt.Sprintf("Install %s? [y/N] ", tag)
+	case force:
+		prompt = fmt.Sprintf("Reinstall %s? [y/N] ", tag)
+	default:
+		prompt = fmt.Sprintf("Update %s → %s? [y/N] ", current, tag)
+	}
+
+	fmt.Print(prompt)
+	scanner := bufio.NewScanner(os.Stdin)
+	scanner.Scan()
+	response := strings.TrimSpace(scanner.Text())
+	switch response {
+	case "y", "Y", "yes", "YES":
+		return true, nil
+	default:
+		return false, nil
+	}
+}
 
 // updateCmd is a placeholder used for root help display and command lookup.
 // Dispatch replaces it with a fresh command from newUpdateCmd at runtime.
@@ -21,6 +57,7 @@ func newUpdateCmd(upd *updater.Client, version string) *Command {
 	var dryRun bool
 	var versionTarget string
 	var force bool
+	var yes bool
 
 	return &Command{
 		Name:      "update",
@@ -35,6 +72,10 @@ func newUpdateCmd(upd *updater.Client, version string) *Command {
 				"install a specific release tag instead of latest (bypasses version comparison)")
 			fs.BoolVar(&force, "force", false,
 				"reinstall even when already up to date (bypasses version comparison)")
+			fs.BoolVar(&yes, "yes", false,
+				"skip the confirmation prompt before installing")
+			fs.BoolVar(&yes, "y", false,
+				"skip the confirmation prompt before installing (short form of --yes)")
 		},
 		Run: func(ctx *RunContext) int {
 			doCheckOnly := checkOnly || dryRun
@@ -119,6 +160,20 @@ func newUpdateCmd(upd *updater.Client, version string) *Command {
 					return ExitSuccess
 				}
 				fmt.Printf("Updating %s → %s ...\n", version, rel.Tag)
+			}
+
+			// Confirmation gate: only on install paths, never on check-only/dry-run.
+			// --yes/-y or non-TTY stdin: proceed without prompting.
+			if !yes {
+				ok, cerr := confirmUpdate(version, rel.Tag, force, versionTargetSet)
+				if cerr != nil {
+					fmt.Fprintf(os.Stderr, "Error: %v\n", cerr)
+					return ExitRuntime
+				}
+				if !ok {
+					fmt.Println("Canceled.")
+					return ExitSuccess
+				}
 			}
 
 			progress := func(phase string) {

@@ -216,7 +216,8 @@ func TestUpdateVersionTarget_InstallsNamedTag(t *testing.T) {
 	old2 := os.Stdout
 	os.Stdout, _ = os.Open(os.DevNull)
 	// v99.0.0 is current (newer than v0.5.0), yet --version-target must still fetch.
-	code := cli.Dispatch([]string{"portkey", "update", "--version-target", "v0.5.0"}, "v99.0.0", "", upd)
+	// --yes skips the confirmation gate so the test proves the install path is reached.
+	code := cli.Dispatch([]string{"portkey", "update", "--version-target", "v0.5.0", "--yes"}, "v99.0.0", "", upd)
 	os.Stderr = old
 	os.Stdout = old2
 
@@ -250,7 +251,8 @@ func TestUpdateVersionTarget_BypassesDevGuard(t *testing.T) {
 	os.Stdout, _ = os.Open(os.DevNull)
 	// "dev" is an unparseable version → dev guard would fire and return 0.
 	// With --version-target, the guard must be bypassed → network call → no assets → code 1.
-	code := cli.Dispatch([]string{"portkey", "update", "--version-target", "v1.0.0"}, "dev", "", upd)
+	// --yes skips the confirmation gate so the test focuses on the dev-guard bypass.
+	code := cli.Dispatch([]string{"portkey", "update", "--version-target", "v1.0.0", "--yes"}, "dev", "", upd)
 	os.Stderr = old
 	os.Stdout = old2
 
@@ -312,7 +314,8 @@ func TestUpdateForce_ReinstallsSameTag(t *testing.T) {
 	old2 := os.Stdout
 	os.Stdout, _ = os.Open(os.DevNull)
 	// Same version → IsNewer is false, but --force must bypass it → no assets → code 1.
-	code := cli.Dispatch([]string{"portkey", "update", "--force"}, "v1.0.0", "", upd)
+	// --yes skips the confirmation gate so the test proves the install path is reached.
+	code := cli.Dispatch([]string{"portkey", "update", "--force", "--yes"}, "v1.0.0", "", upd)
 	os.Stderr = old
 	os.Stdout = old2
 
@@ -333,7 +336,8 @@ func TestUpdateForce_BypassesDevGuard(t *testing.T) {
 	old2 := os.Stdout
 	os.Stdout, _ = os.Open(os.DevNull)
 	// "dev" → dev guard would return 0 without network. --force bypasses it → code 1.
-	code := cli.Dispatch([]string{"portkey", "update", "--force"}, "dev", "", upd)
+	// --yes skips the confirmation gate so the test focuses on the dev-guard bypass.
+	code := cli.Dispatch([]string{"portkey", "update", "--force", "--yes"}, "dev", "", upd)
 	os.Stderr = old
 	os.Stdout = old2
 

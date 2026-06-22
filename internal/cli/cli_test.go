@@ -555,8 +555,12 @@ func TestDispatchUpdateNewerAvailable(t *testing.T) {
 	// Capture stderr for error message
 	old := os.Stderr
 	os.Stderr, _ = os.Open(os.DevNull)
-	code := cli.Dispatch([]string{"portkey", "update"}, "v0.1.0", "", upd)
+	old2 := os.Stdout
+	os.Stdout, _ = os.Open(os.DevNull)
+	// --yes skips the confirmation gate so the test proves the version check passes.
+	code := cli.Dispatch([]string{"portkey", "update", "--yes"}, "v0.1.0", "", upd)
 	os.Stderr = old
+	os.Stdout = old2
 
 	// Will fail because no assets, but should get past the version check
 	if code != 1 {
