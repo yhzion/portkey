@@ -208,11 +208,6 @@ func TestStoreSaveAndLoad(t *testing.T) {
 }
 
 func TestStoreSaveWritesPrivateFileMode(t *testing.T) {
-	oldUmask := syscall.Umask(0)
-	t.Cleanup(func() {
-		syscall.Umask(oldUmask)
-	})
-
 	dir := t.TempDir()
 	path := filepath.Join(dir, "hosts.json")
 	store := config.NewStore(path)
