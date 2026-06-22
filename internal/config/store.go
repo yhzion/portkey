@@ -130,13 +130,25 @@ func EnsureDir() error {
 	return os.MkdirAll(dir, 0o755)
 }
 
+// GetStore returns a Store for the given path, or the default config path if path is empty.
+func GetStore(path string) (Store, error) {
+	if path == "" {
+		var err error
+		path, err = ConfigPath()
+		if err != nil {
+			return nil, err
+		}
+	}
+	return NewStore(path), nil
+}
+
 // Load reads config from the default path.
 func Load() (*Config, error) {
-	path, err := ConfigPath()
+	s, err := GetStore("")
 	if err != nil {
 		return nil, err
 	}
-	return NewStore(path).Load()
+	return s.Load()
 }
 
 // Save writes config to the default path.
@@ -144,9 +156,9 @@ func Save(cfg *Config) error {
 	if err := EnsureDir(); err != nil {
 		return fmt.Errorf("create config dir: %w", err)
 	}
-	path, err := ConfigPath()
+	s, err := GetStore("")
 	if err != nil {
 		return err
 	}
-	return NewStore(path).Save(cfg)
+	return s.Save(cfg)
 }

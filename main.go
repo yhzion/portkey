@@ -28,14 +28,17 @@ func main() {
 		}
 	}
 
-	cfg, err := config.Load()
+	store, err := config.GetStore("")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error initializing config store: %v\n", err)
+		os.Exit(1)
+	}
+
+	cfg, err := store.Load()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error loading config: %v\n", err)
 		os.Exit(1)
 	}
-
-	configPath, _ := config.ConfigPath()
-	store := config.NewStore(configPath)
 
 	m := tui.InitialModel(cfg, version, upd, store)
 
@@ -74,7 +77,9 @@ func main() {
 			break
 		}
 	}
-	config.Save(cfg)
+	if err := store.Save(cfg); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to save config: %v\n", err)
+	}
 
 	// Run ssh.
 	if err := ssh.Run(*selectedHost); err != nil {

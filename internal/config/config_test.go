@@ -138,6 +138,34 @@ func TestRemoveHostOutOfRange(t *testing.T) {
 	}
 }
 
+func TestGetStoreExplicitPath(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "hosts.json")
+
+	store, err := config.GetStore(path)
+	if err != nil {
+		t.Fatalf("GetStore(%q) error = %v", path, err)
+	}
+	if store == nil {
+		t.Fatalf("GetStore(%q) = nil, want non-nil Store", path)
+	}
+}
+
+func TestGetStoreDefaultPath(t *testing.T) {
+	// Make the default config path resolution hermetic. os.UserConfigDir
+	// honors XDG_CONFIG_HOME on Linux; pointing it at a temp dir avoids
+	// touching the real user config location. No file I/O occurs here.
+	t.Setenv("XDG_CONFIG_HOME", t.TempDir())
+
+	store, err := config.GetStore("")
+	if err != nil {
+		t.Fatalf("GetStore(\"\") error = %v", err)
+	}
+	if store == nil {
+		t.Fatal("GetStore(\"\") = nil, want non-nil Store")
+	}
+}
+
 func TestStoreLoadNonexistent(t *testing.T) {
 	dir := t.TempDir()
 	store := config.NewStore(filepath.Join(dir, "hosts.json"))

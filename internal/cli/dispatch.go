@@ -21,7 +21,7 @@ const (
 type Command struct {
 	Name      string
 	ShortDesc string
-	Flags     func(fs *flag.FlagSet)   // register flags
+	Flags     func(fs *flag.FlagSet)    // register flags
 	Run       func(ctx *RunContext) int // business logic
 }
 
@@ -151,28 +151,38 @@ func hasHelp(args []string) bool {
 
 // loadConfig loads from configPath, or falls back to default location.
 func loadConfig(configPath string) (*config.Config, error) {
-	if configPath == "" {
-		return config.Load()
+	s, err := config.GetStore(configPath)
+	if err != nil {
+		return nil, err
 	}
-	return config.NewStore(configPath).Load()
+	return s.Load()
 }
 
 // saveConfig saves to configPath, or falls back to default location.
 func saveConfig(configPath string, cfg *config.Config) error {
-	if configPath == "" {
-		return config.Save(cfg)
+	s, err := config.GetStore(configPath)
+	if err != nil {
+		return err
 	}
-	return config.NewStore(configPath).Save(cfg)
+	return s.Save(cfg)
 }
 
 // getString returns the string value of a named flag.
 func getString(fs *flag.FlagSet, name string) string {
-	return fs.Lookup(name).Value.String()
+	f := fs.Lookup(name)
+	if f == nil {
+		return ""
+	}
+	return f.Value.String()
 }
 
 // getBool returns the bool value of a named flag.
 func getBool(fs *flag.FlagSet, name string) bool {
-	b, _ := strconv.ParseBool(fs.Lookup(name).Value.String())
+	f := fs.Lookup(name)
+	if f == nil {
+		return false
+	}
+	b, _ := strconv.ParseBool(f.Value.String())
 	return b
 }
 
