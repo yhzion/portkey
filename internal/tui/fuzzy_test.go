@@ -175,6 +175,31 @@ func TestFuzzyMatch_SingleCharQuery(t *testing.T) {
 	}
 }
 
+func TestFuzzyMatch_MatchedField(t *testing.T) {
+	hosts := []config.Host{
+		{Name: "webserver", Username: "root", Host: "10.0.0.1", Port: 22},
+		{Name: "server", Username: "admin", Host: "192.168.1.1", Port: 22},
+	}
+
+	// "web" matches only the Name of host 0.
+	nameResults := fuzzyMatch(hosts, "web")
+	if len(nameResults) != 1 {
+		t.Fatalf("len(nameResults) = %d, want 1", len(nameResults))
+	}
+	if nameResults[0].matchedField != "name" {
+		t.Errorf("matchedField = %q, want \"name\"", nameResults[0].matchedField)
+	}
+
+	// "adm" matches only the Username of host 1.
+	userResults := fuzzyMatch(hosts, "adm")
+	if len(userResults) != 1 {
+		t.Fatalf("len(userResults) = %d, want 1", len(userResults))
+	}
+	if userResults[0].matchedField != "username" {
+		t.Errorf("matchedField = %q, want \"username\"", userResults[0].matchedField)
+	}
+}
+
 func TestFuzzyMatch_DuplicateResultsNotReturned(t *testing.T) {
 	// A host whose name, username AND host all match should only appear once
 	hosts := []config.Host{{Name: "admin", Username: "admin", Host: "admin.local", Port: 22}}
