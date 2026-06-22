@@ -39,6 +39,10 @@ func (m *model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 
+	case healthResultMsg:
+		m.health[msg.name] = msg.status
+		return m, nil
+
 	case errMsg:
 		m.errMsg = msg.Error()
 		m.screen = screenError

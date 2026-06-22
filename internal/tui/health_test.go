@@ -60,3 +60,12 @@ func TestHealthCheckAll_EmptyIsNil(t *testing.T) {
 		t.Error("healthCheckAll(nil) should be nil so tea.Batch has nothing to do")
 	}
 }
+
+func TestUpdate_HealthResultMsg_StoresStatus(t *testing.T) {
+	m := newTestModel(testHostDev) // testHostDev.Name == "dev"
+	updated, _ := m.Update(healthResultMsg{name: "dev", status: healthOnline})
+	mm := updated.(*model)
+	if mm.health["dev"] != healthOnline {
+		t.Errorf("health[dev] = %v, want healthOnline", mm.health["dev"])
+	}
+}
