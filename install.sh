@@ -8,6 +8,9 @@ set -euo pipefail
 REPO="yhzion/portkey"
 BINARY="portkey"
 
+# Pinned minisign public key (must match internal/updater/pubkey.go).
+MINISIGN_PUBKEY="RWReplaceWithRealPublicKeyLineBeforeFirstSignedRelease"
+
 # ── Colors ────────────────────────────────────────────────────────────────
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -141,6 +144,33 @@ verify_checksum() {
   fi
 
   ok "Checksum verified"
+}
+
+# ── Verify minisign signature (best-effort) ──────────────────────────────
+# Arguments: $1 = path to checksums.txt, $2 = path to checksums.txt.minisig
+# Behaviour:
+#   minisign present + sig present → verify; die on failure
+#   minisign present + sig absent  → warn + continue
+#   minisign absent                → warn + continue
+verify_signature() {
+  local checksums_file="$1"
+  local sig_file="$2"
+
+  if command -v minisign >/dev/null 2>&1; then
+    if [ -s "$sig_file" ]; then
+      if minisign -V -P "$MINISIGN_PUBKEY" \
+          -m "$checksums_file" \
+          -x "$sig_file" >/dev/null 2>&1; then
+        ok "Signature verified"
+      else
+        die "Signature verification failed for checksums.txt"
+      fi
+    else
+      warn "Signature file missing — skipping signature verification"
+    fi
+  else
+    warn "minisign not found — skipping signature verification (install minisign for full verification)"
+  fi
 }
 
 # ── Detect Termux ─────────────────────────────────────────────────────────
@@ -315,6 +345,11 @@ main() {
   if [ ! -s "${TMPDIR}/checksums.txt" ]; then
     die "Failed to download checksums.txt"
   fi
+
+  # Best-effort signature verification of checksums.txt.
+  info "Downloading signature..."
+  download "${checksums_url}.minisig" "${TMPDIR}/checksums.txt.minisig" 2>/dev/null || true
+  verify_signature "${TMPDIR}/checksums.txt" "${TMPDIR}/checksums.txt.minisig"
 
   # Download tarball
   info "Downloading ${filename}..."
