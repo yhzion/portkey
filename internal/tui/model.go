@@ -416,6 +416,9 @@ func (m *model) confirmDelete() tea.Cmd {
 }
 
 func (m *model) connectHost(index int) tea.Cmd {
+	if m.updateModel.cancelCheck != nil {
+		m.updateModel.cancelCheck()
+	}
 	m.connectIndex = index
 	m.connected = true
 	return tea.Quit

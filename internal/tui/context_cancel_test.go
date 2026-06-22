@@ -76,3 +76,25 @@ func TestCancelFunc_InvokedOnQuit(t *testing.T) {
 		t.Error("quit key should have invoked cancelCheck func")
 	}
 }
+
+// TestCancelFunc_InvokedOnConnect verifies that selecting a host (the connect
+// path) also cancels any in-flight update check, matching the quit-key behaviour.
+func TestCancelFunc_InvokedOnConnect(t *testing.T) {
+	checker := newBlockingChecker()
+	cfg := &config.Config{
+		Hosts: []config.Host{{Name: "testhost", Host: "127.0.0.1", Port: 22, Username: "u"}},
+	}
+	m := InitialModel(cfg, "v0.1.0", checker, mockStore{}).(*model)
+
+	cancelled := false
+	m.updateModel.cancelCheck = func() {
+		cancelled = true
+	}
+
+	// Press Enter to select the first (and only) host.
+	m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+
+	if !cancelled {
+		t.Error("connecting to a host should have invoked cancelCheck func")
+	}
+}
