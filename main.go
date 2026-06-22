@@ -47,7 +47,7 @@ func main() {
 	// GitHub's unauthenticated rate limit (60 req/hr/IP). If ConfigDir() fails
 	// we fall back to the raw client rather than aborting startup.
 	tuiChecker := buildTUIChecker(upd)
-	m := tui.InitialModel(cfg, version, tuiChecker, store)
+	m := tui.InitialModel(cfg, version, tuiChecker, upd, store)
 
 	p := tea.NewProgram(
 		m,

@@ -33,7 +33,7 @@ func (b *blockingChecker) CheckLatest(ctx context.Context) (*updater.Release, er
 // updateCheckFailedMsg — so no "offline" hint is flashed.
 func TestCheckUpdate_ContextCancelled_NoFailedMsg(t *testing.T) {
 	checker := newBlockingChecker()
-	m := InitialModel(&config.Config{}, "v0.1.0", checker, mockStore{}).(*model)
+	m := InitialModel(&config.Config{}, "v0.1.0", checker, nil, mockStore{}).(*model)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	cmd := m.updateModel.checkUpdate(ctx)
@@ -62,7 +62,7 @@ func TestCheckUpdate_ContextCancelled_NoFailedMsg(t *testing.T) {
 func TestCancelFunc_InvokedOnQuit(t *testing.T) {
 	checker := newBlockingChecker()
 	cfg := &config.Config{}
-	m := InitialModel(cfg, "v0.1.0", checker, mockStore{}).(*model)
+	m := InitialModel(cfg, "v0.1.0", checker, nil, mockStore{}).(*model)
 
 	cancelled := false
 	m.updateModel.cancelCheck = func() {
@@ -84,7 +84,7 @@ func TestCancelFunc_InvokedOnConnect(t *testing.T) {
 	cfg := &config.Config{
 		Hosts: []config.Host{{Name: "testhost", Host: "127.0.0.1", Port: 22, Username: "u"}},
 	}
-	m := InitialModel(cfg, "v0.1.0", checker, mockStore{}).(*model)
+	m := InitialModel(cfg, "v0.1.0", checker, nil, mockStore{}).(*model)
 
 	cancelled := false
 	m.updateModel.cancelCheck = func() {

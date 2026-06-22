@@ -86,6 +86,13 @@ type UpdateChecker interface {
 	CheckLatest(ctx context.Context) (*updater.Release, error)
 }
 
+// Installer downloads and installs a release, replacing the running binary.
+// *updater.Client satisfies it. Kept separate from UpdateChecker so the install
+// path always uses the raw client, never the caching decorator.
+type Installer interface {
+	DownloadAndInstall(rel *updater.Release, progress func(phase string)) error
+}
+
 type updateDoneMsg struct {
 	err error
 }
@@ -285,9 +292,12 @@ func newKeyMap() keyMap {
 	}
 }
 
-func InitialModel(cfg *config.Config, version string, upd UpdateChecker, store config.Store) tea.Model {
+func InitialModel(cfg *config.Config, version string, upd UpdateChecker, inst Installer, store config.Store) tea.Model {
 	if client, ok := upd.(*updater.Client); ok && client == nil {
 		upd = nil
+	}
+	if client, ok := inst.(*updater.Client); ok && client == nil {
+		inst = nil
 	}
 	m := &model{
 		screen:   screenHostList,
@@ -296,8 +306,9 @@ func InitialModel(cfg *config.Config, version string, upd UpdateChecker, store c
 		keys:     newKeyMap(),
 		store:    store,
 		updateModel: updateModel{
-			version: version,
-			checker: upd,
+			version:   version,
+			checker:   upd,
+			installer: inst,
 		},
 	}
 	return m
