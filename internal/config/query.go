@@ -59,23 +59,3 @@ func SortHosts(hosts []Host) {
 		return hosts[i].Name < hosts[j].Name
 	})
 }
-
-// MigrateName converts a legacy display name to a valid slug.
-// Lowercases, replaces spaces and dots with hyphens, strips invalid chars.
-func MigrateName(displayName string, index int) string {
-	name := strings.ToLower(displayName)
-	name = strings.ReplaceAll(name, " ", "-")
-	name = strings.ReplaceAll(name, ".", "-")
-	// Strip any character not in [a-z0-9_-]
-	var b strings.Builder
-	for _, r := range name {
-		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' || r == '_' {
-			b.WriteRune(r)
-		}
-	}
-	result := b.String()
-	if result == "" {
-		result = fmt.Sprintf("host-%d", index)
-	}
-	return result
-}

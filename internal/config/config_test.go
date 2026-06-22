@@ -520,44 +520,6 @@ func TestFindHostByNameExactPreferredOverSuffix(t *testing.T) {
 	}
 }
 
-// --- MigrateName tests ---
-
-func TestMigrateNameLowercases(t *testing.T) {
-	if got := config.MigrateName("ProductionAPI", 0); got != "productionapi" {
-		t.Errorf("MigrateName(\"ProductionAPI\") = %q, want %q", got, "productionapi")
-	}
-}
-
-func TestMigrateNameSpacesToHyphens(t *testing.T) {
-	if got := config.MigrateName("Production API", 0); got != "production-api" {
-		t.Errorf("MigrateName(\"Production API\") = %q, want %q", got, "production-api")
-	}
-}
-
-func TestMigrateNameDotsToHyphens(t *testing.T) {
-	if got := config.MigrateName("app.local", 0); got != "app-local" {
-		t.Errorf("MigrateName(\"app.local\") = %q, want %q", got, "app-local")
-	}
-}
-
-func TestMigrateNameStripsSpecialChars(t *testing.T) {
-	if got := config.MigrateName("my@server!", 0); got != "myserver" {
-		t.Errorf("MigrateName(\"my@server!\") = %q, want %q", got, "myserver")
-	}
-}
-
-func TestMigrateNameEmptyFallsBackToHostIndex(t *testing.T) {
-	if got := config.MigrateName("@@@", 3); got != "host-3" {
-		t.Errorf("MigrateName(\"@@@\", 3) = %q, want %q", got, "host-3")
-	}
-}
-
-func TestMigrateNameAlreadyValid(t *testing.T) {
-	if got := config.MigrateName("my-server_v2", 0); got != "my-server_v2" {
-		t.Errorf("MigrateName(\"my-server_v2\") = %q, want %q", got, "my-server_v2")
-	}
-}
-
 // --- SortHosts tests ---
 
 func TestSortHostsByLastUsed(t *testing.T) {
