@@ -37,6 +37,24 @@ archives:
 checksum:
   name_template: checksums.txt
 
+signs:
+  - id: checksums
+    cmd: minisign
+    signature: "${artifact}.minisig"
+    args:
+      - "-S"
+      - "-s"
+      - "{{ .Env.MINISIGN_KEY_FILE }}"
+      - "-m"
+      - "${artifact}"
+      - "-x"
+      - "${signature}"
+      - "-t"
+      - "portkey {{ .Version }}"
+    artifacts: checksum
+    output: true
+    stdin: "{{ .Env.MINISIGN_PASSWORD }}"
+
 release:
   extra_files:
     - glob: ./install.sh

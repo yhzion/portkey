@@ -125,6 +125,31 @@ No passwords or private keys are stored.
 
 ---
 
+## Verifying releases
+
+Every release ships a `checksums.txt.minisig` alongside `checksums.txt`.
+The signature is produced with [minisign](https://jedisct1.github.io/minisign/)
+and covers `checksums.txt`, which in turn covers every release archive via
+SHA-256.
+
+- **`install.sh`** verifies the signature automatically when `minisign` is
+  present on your `PATH`. If `minisign` is absent it prints a warning and falls
+  back to checksum-only verification.
+- **`portkey update`** (the in-app updater) always verifies the signature before
+  installing. It is fail-closed: an update is refused if `checksums.txt.minisig`
+  is missing or invalid.
+
+To verify a release manually:
+
+```bash
+minisign -V -P <public-key> -m checksums.txt -x checksums.txt.minisig
+```
+
+The current public key is embedded in `install.sh` (`MINISIGN_PUBKEY`) and in
+`internal/updater/pubkey.go` (`MinisignPublicKey`).
+
+---
+
 ## Uninstall
 
 ```bash
