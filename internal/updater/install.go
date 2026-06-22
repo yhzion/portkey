@@ -14,6 +14,11 @@ import (
 	"strings"
 )
 
+// maxBinarySize caps how many bytes are read from the download, checksum file,
+// and extracted tar entry. A real portkey build is a few MiB; this ceiling
+// guards against decompression bombs / OOM during an auto-update (issue #52).
+const maxBinarySize = 100 << 20 // 100 MiB
+
 // osRename is os.Rename as a variable so tests can inject a failing rename to
 // simulate cross-device (EXDEV) failures (issue #51).
 var osRename = os.Rename
@@ -65,7 +70,15 @@ func (c *Client) downloadBytes(url string) ([]byte, error) {
 		return nil, fmt.Errorf("status %d", resp.StatusCode)
 	}
 
-	return io.ReadAll(resp.Body)
+	// Cap the read so a malicious / oversized asset can't exhaust memory (#52).
+	data, err := io.ReadAll(io.LimitReader(resp.Body, maxBinarySize+1))
+	if err != nil {
+		return nil, fmt.Errorf("read body: %w", err)
+	}
+	if int64(len(data)) > maxBinarySize {
+		return nil, fmt.Errorf("download exceeds %d bytes", maxBinarySize)
+	}
+	return data, nil
 }
 
 // verifyChecksum downloads checksums.txt from the release assets and verifies
@@ -92,9 +105,12 @@ func (c *Client) verifyChecksum(assets []Asset, name string, data []byte) error 
 		return fmt.Errorf("fetch checksums: status %d", resp.StatusCode)
 	}
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, maxBinarySize+1))
 	if err != nil {
 		return fmt.Errorf("read checksums: %w", err)
+	}
+	if int64(len(body)) > maxBinarySize {
+		return fmt.Errorf("checksums.txt exceeds %d bytes", maxBinarySize)
 	}
 
 	expected := findHash(string(body), name)
@@ -142,13 +158,32 @@ func extractBinary(r io.Reader) ([]byte, error) {
 		if err != nil {
 			return nil, fmt.Errorf("tar: %w", err)
 		}
-		if filepath.Base(hdr.Name) == "portkey" && hdr.Typeflag != tar.TypeDir {
-			data, err := io.ReadAll(tr)
-			if err != nil {
-				return nil, fmt.Errorf("read portkey: %w", err)
-			}
-			return data, nil
+		// Only accept a regular file named exactly "portkey" — no path
+		// separators, no ".." traversal, and never symlink/hardlink/dir entries
+		// (issue #52).
+		if hdr.Name != "portkey" || filepath.Base(hdr.Name) != hdr.Name {
+			continue
 		}
+		if hdr.Typeflag != tar.TypeReg {
+			return nil, fmt.Errorf(
+				"portkey entry is not a regular file (type %d)", hdr.Typeflag,
+			)
+		}
+		if hdr.Size > maxBinarySize {
+			return nil, fmt.Errorf(
+				"portkey entry size %d exceeds %d bytes", hdr.Size, maxBinarySize,
+			)
+		}
+		data, err := io.ReadAll(io.LimitReader(tr, maxBinarySize+1))
+		if err != nil {
+			return nil, fmt.Errorf("read portkey: %w", err)
+		}
+		if int64(len(data)) > maxBinarySize {
+			return nil, fmt.Errorf(
+				"portkey entry exceeds %d bytes", maxBinarySize,
+			)
+		}
+		return data, nil
 	}
 
 	return nil, fmt.Errorf("portkey binary not found in archive")
