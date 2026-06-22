@@ -39,27 +39,31 @@ func (k CheckErrorKind) String() string {
 	}
 }
 
+// Sentinel errors returned (wrapped) by CheckLatest. Callers should use
+// errors.Is rather than comparing error strings directly; wrapping is safe.
+var (
+	ErrRateLimited = errors.New("rate limited")
+	ErrNoReleases  = errors.New("no releases published yet")
+	ErrForbidden   = errors.New("forbidden (check token or repo visibility)")
+)
+
 // ClassifyCheckError inspects err returned by CheckLatest and returns the
 // appropriate CheckErrorKind. It must not be called with a nil error.
 func ClassifyCheckError(err error) CheckErrorKind {
 	if err == nil {
 		return KindUnknown
 	}
-	msg := err.Error()
-	// Transport / offline errors contain a wrapped net error.
+	// Transport / offline errors contain a wrapped net.Error.
 	var netErr net.Error
 	if errors.As(err, &netErr) {
 		return KindOffline
 	}
-	// Heuristic on error strings produced by CheckLatest below.
 	switch {
-	case strings.Contains(msg, "fetch latest release"):
-		return KindOffline
-	case msg == "rate limited":
+	case errors.Is(err, ErrRateLimited):
 		return KindRateLimited
-	case strings.Contains(msg, "no releases"):
+	case errors.Is(err, ErrNoReleases):
 		return KindNotFound
-	case strings.Contains(msg, "forbidden"):
+	case errors.Is(err, ErrForbidden):
 		return KindOther
 	}
 	return KindOther
@@ -226,11 +230,11 @@ func (c *Client) CheckLatest() (*Release, error) {
 	case http.StatusOK:
 		// fall through to decode
 	case http.StatusTooManyRequests:
-		return nil, fmt.Errorf("rate limited")
+		return nil, fmt.Errorf("update check: %w", ErrRateLimited)
 	case http.StatusNotFound:
-		return nil, fmt.Errorf("no releases published yet")
+		return nil, fmt.Errorf("update check: %w", ErrNoReleases)
 	case http.StatusForbidden:
-		return nil, fmt.Errorf("forbidden (check token or repo visibility)")
+		return nil, fmt.Errorf("update check: %w", ErrForbidden)
 	default:
 		return nil, fmt.Errorf("unexpected status: %d", resp.StatusCode)
 	}

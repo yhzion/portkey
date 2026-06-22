@@ -1,6 +1,8 @@
 package updater
 
 import (
+	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -160,8 +162,8 @@ func TestCheckLatestRateLimitedOn429(t *testing.T) {
 	if err == nil {
 		t.Fatal("CheckLatest() error = nil, want rate limited")
 	}
-	if err.Error() != "rate limited" {
-		t.Errorf("error = %q, want %q", err.Error(), "rate limited")
+	if !errors.Is(err, ErrRateLimited) {
+		t.Errorf("error %q should wrap ErrRateLimited", err.Error())
 	}
 }
 
@@ -200,6 +202,13 @@ func TestClassifyCheckError(t *testing.T) {
 			got := ClassifyCheckError(err)
 			if got != tt.wantKind {
 				t.Errorf("ClassifyCheckError(%q) = %v, want %v", err.Error(), got, tt.wantKind)
+			}
+			// Wrapping robustness: an additional layer of wrapping must not break
+			// classification (proves errors.Is-based sentinel dispatch works through
+			// arbitrary wrapping, e.g. "update check: %w" then "context: %w").
+			wrapped := fmt.Errorf("outer context: %w", err)
+			if got2 := ClassifyCheckError(wrapped); got2 != tt.wantKind {
+				t.Errorf("ClassifyCheckError(wrapped %q) = %v, want %v", wrapped.Error(), got2, tt.wantKind)
 			}
 		})
 	}

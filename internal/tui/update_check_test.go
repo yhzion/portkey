@@ -3,12 +3,22 @@ package tui
 import (
 	"errors"
 	"fmt"
+	"net"
 	"strings"
 	"testing"
 
 	"github.com/yhzion/portkey/internal/config"
 	"github.com/yhzion/portkey/internal/updater"
 )
+
+// fakeNetError is a minimal net.Error for testing the offline classification path.
+type fakeNetError struct{ msg string }
+
+func (e *fakeNetError) Error() string   { return e.msg }
+func (e *fakeNetError) Timeout() bool   { return false }
+func (e *fakeNetError) Temporary() bool { return false }
+
+var _ net.Error = (*fakeNetError)(nil)
 
 // fakeUpdateChecker stands in for a real updater.Client so the update-check
 // flow can be exercised without any network access.
@@ -81,22 +91,22 @@ func TestCheckUpdate_KindClassification(t *testing.T) {
 	}{
 		{
 			"offline",
-			fakeUpdateChecker{err: fmt.Errorf("fetch latest release: %w", errors.New("connection refused"))},
+			fakeUpdateChecker{err: fmt.Errorf("fetch latest release: %w", &fakeNetError{"connection refused"})},
 			updater.KindOffline,
 		},
 		{
 			"rate_limited_429",
-			fakeUpdateChecker{err: fmt.Errorf("rate limited")},
+			fakeUpdateChecker{err: fmt.Errorf("update check: %w", updater.ErrRateLimited)},
 			updater.KindRateLimited,
 		},
 		{
 			"not_found_404",
-			fakeUpdateChecker{err: fmt.Errorf("no releases published yet")},
+			fakeUpdateChecker{err: fmt.Errorf("update check: %w", updater.ErrNoReleases)},
 			updater.KindNotFound,
 		},
 		{
 			"other_403",
-			fakeUpdateChecker{err: fmt.Errorf("forbidden: %w", fmt.Errorf("forbidden"))},
+			fakeUpdateChecker{err: fmt.Errorf("update check: %w", updater.ErrForbidden)},
 			updater.KindOther,
 		},
 	}
