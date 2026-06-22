@@ -19,7 +19,7 @@ var confirmUpdate = defaultConfirmUpdate
 // If not a TTY, it proceeds silently (non-TTY/scripted use must not hang).
 // Returns (true, nil) to proceed, (false, nil) to cancel.
 func defaultConfirmUpdate(current, tag string, force, versionTargetSet bool) (bool, error) {
-	if !isTerminal(os.Stdin) {
+	if !isTerminal(os.Stdin) || !isTerminal(os.Stdout) {
 		return true, nil
 	}
 
