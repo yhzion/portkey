@@ -5,6 +5,8 @@ import (
 	"net"
 	"strconv"
 	"testing"
+
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 func TestClassifyDialError(t *testing.T) {
@@ -67,5 +69,19 @@ func TestUpdate_HealthResultMsg_StoresStatus(t *testing.T) {
 	mm := updated.(*model)
 	if mm.health["dev"] != healthOnline {
 		t.Errorf("health[dev] = %v, want healthOnline", mm.health["dev"])
+	}
+}
+
+func TestHandleHostListKey_R_ResetsAndRechecks(t *testing.T) {
+	m := newTestModel(testHostDev)
+	m.health["dev"] = healthOnline
+
+	_, cmd := m.handleHostListKey(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune("r")})
+
+	if m.health["dev"] != healthUnknown {
+		t.Errorf("after r, health[dev] = %v, want healthUnknown (reset)", m.health["dev"])
+	}
+	if cmd == nil {
+		t.Error("r should return a re-check command")
 	}
 }

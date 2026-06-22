@@ -320,10 +320,12 @@ func InitialModel(cfg *config.Config, version string, upd UpdateChecker, inst In
 
 func (m *model) Init() tea.Cmd {
 	config.SortHosts(m.config.Hosts)
+	var cmds []tea.Cmd
 	if m.updateModel.checker != nil && m.updateModel.version != "dev" {
-		return m.updateModel.checkUpdate(context.Background())
+		cmds = append(cmds, m.updateModel.checkUpdate(context.Background()))
 	}
-	return nil
+	cmds = append(cmds, healthCheckAll(m.config.Hosts))
+	return tea.Batch(cmds...)
 }
 
 func buildHostForm(hf *hostForm) *huh.Form {
