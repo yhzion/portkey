@@ -82,7 +82,7 @@ func (c *Client) CheckRelease(ctx context.Context, tag string) (*Release, error)
 	}
 
 	var gh ghRelease
-	if err := json.NewDecoder(resp.Body).Decode(&gh); err != nil {
+	if err := json.NewDecoder(io.LimitReader(resp.Body, 1<<20)).Decode(&gh); err != nil {
 		return nil, fmt.Errorf("decode response: %w", err)
 	}
 
