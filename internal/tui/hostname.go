@@ -1,5 +1,7 @@
 package tui
 
+import "github.com/mattn/go-runewidth"
+
 // Host-name column sizing. The name column is sized to the longest name on
 // screen (so it never wraps) but clamped to [nameColMin, nameColMax]; names
 // longer than the column are truncated with an ellipsis rather than wrapped.
@@ -11,17 +13,30 @@ const (
 // truncateName limits name to width display columns, appending "…" when it had
 // to cut. It returns the (possibly truncated) text and kept — the number of
 // original runes retained — so callers can drop match-highlight positions that
-// fall in the cut-off region. Truncation is rune-aware so multi-byte names are
-// never split mid-rune.
+// fall in the cut-off region. Widths are measured in terminal display columns
+// (full-width runes count as 2), matching lipgloss's Width, so a column sized
+// by the same measure never overflows. Truncation is rune-aware so multi-byte
+// names are never split mid-rune.
 func truncateName(name string, width int) (string, int) {
 	if width <= 0 {
 		return "", 0
 	}
 	runes := []rune(name)
-	if len(runes) <= width {
+	// A name that fits the column is kept whole; only an over-width name is
+	// trimmed to width-1 display columns (each full-width rune = 2) with the
+	// last column reserved for the ellipsis.
+	if runewidth.StringWidth(name) <= width {
 		return name, len(runes)
 	}
-	kept := width - 1
+	kept, contentWidth := 0, 0
+	for _, r := range runes {
+		rw := runewidth.RuneWidth(r)
+		if rw > width-1-contentWidth {
+			break
+		}
+		contentWidth += rw
+		kept++
+	}
 	return string(runes[:kept]) + "…", kept
 }
 
@@ -38,12 +53,13 @@ func keepPositions(positions []int, kept int) []int {
 }
 
 // nameColumnWidth returns the width of the name column: the longest name in
-// names, clamped to [nameColMin, nameColMax]. Sizing to the content keeps the
-// column tight while the cap bounds a single pathological name.
+// names, clamped to [nameColMin, nameColMax]. Width is measured in display
+// columns (full-width runes = 2) to match lipgloss's Width, so the column
+// stays tight while the cap bounds a single pathological name.
 func nameColumnWidth(names []string) int {
 	w := nameColMin
 	for _, n := range names {
-		if l := len([]rune(n)); l > w {
+		if l := runewidth.StringWidth(n); l > w {
 			w = l
 		}
 	}

@@ -51,7 +51,10 @@ func TestTruncateName(t *testing.T) {
 		{"equal to width is unchanged", "datamaker-10-0-250-0", 20, "datamaker-10-0-250-0", 20},
 		{"longer than width gets ellipsis", "datamaker-192-168-14-135", 20, "datamaker-192-168-1…", 19},
 		{"width of one is just ellipsis", "anything", 1, "…", 0},
-		{"rune-aware truncation", "한국어서버이름테스트", 5, "한국어서…", 4},
+		// Full-width runes count as 2 display columns: width 4 leaves room for
+		// two hangul (4 cols) plus the ellipsis column, so three hangul + "…"
+		// would exceed the slot. Truncation still never splits a rune.
+		{"full-width runes count double", "한국어서버이름테스트", 5, "한국…", 2},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -95,6 +98,9 @@ func TestNameColumnWidth(t *testing.T) {
 		{"all short clamps to minimum", []string{"a", "bb", "ccc"}, nameColMin},
 		{"longest within range wins", []string{"short", "datamaker-192-168-14-135"}, 24},
 		{"longest beyond max is capped", []string{"this-is-an-extremely-long-hostname-way-over-the-cap"}, nameColMax},
+		// 10 hangul runes count as 20 display columns, so the column sizes to 20
+		// rather than clamping to the rune count (10).
+		{"full-width runes count double", []string{"한국어서버이름테스트"}, 20},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
